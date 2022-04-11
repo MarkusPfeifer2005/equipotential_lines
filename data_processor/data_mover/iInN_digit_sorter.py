@@ -3,8 +3,8 @@
 # Imports:
 import os
 
-# Script:
-if __name__ == "__main__":
+
+def main():
     # get current working directory
     cwd = os.getcwd()
 
@@ -23,3 +23,8 @@ if __name__ == "__main__":
 
         n = file_name.split('n')[1].replace(".jpg", '')  # get the number-value as str
         os.rename(file_name, os.path.join(cwd, n, file_name))  # move the file into corresponding folder
+
+
+# Script:
+if __name__ == "__main__":
+    main()
