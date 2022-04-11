@@ -33,7 +33,7 @@ def magic_math_function(p: tuple[int, int]) -> float:
     return VQ2 - VQ1  # +-?
 
 
-if __name__ == "__main__":
+def main():
     data = []
     for x in range(0, x_max, step):
         for y in range(0, y_max, step):
@@ -52,3 +52,7 @@ if __name__ == "__main__":
         ax.scatter(i[0], -i[1], i[2])
 
     plt.show()
+
+
+if __name__ == "__main__":
+    main()

@@ -32,7 +32,7 @@ def magic_math_function(p: tuple[float, float]) -> float:
     return V1 + V2 + U / 2  # due to zero-point
 
 
-if __name__ == "__main__":
+def main():
     data = []
     for x in range(0, int(x_max*1000), int(step*1000)):
         for y in range(0, int(y_max*1000), int(step*1000)):
@@ -53,21 +53,6 @@ if __name__ == "__main__":
 
     plt.show()
 
-    # elif ipt == '2':
-    #     data = []
-    #     for x in range(0, x_max, step):
-    #         row = []
-    #         for y in range(0, y_max, step):
-    #             if (x, y) == electrode_1 or (x, y) == electrode_2:
-    #                 v = 0
-    #             else:
-    #                 v = magic_math_function(p=(x, y))
-    #             print(f"{v = }")
-    #             row.append([x, y, v])
-    #         data.append(row)
-    #
-    #     data = np.array(data)
-    #     fig, ax = plt.subplots()
-    #     img = ax.imshow(data)
-    #     fig.tight_layout()
-    #     plt.show()
+
+if __name__ == "__main__":
+    main()

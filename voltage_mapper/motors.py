@@ -100,22 +100,3 @@ class StepperMotor:
             self.pos_cst_deg -= self.one_rot_cst_deg
         while self.pos_cst_deg < 0:
             self.pos_cst_deg += self.one_rot_cst_deg
-
-
-def main():
-    # gpio: [7,11,13,15],[12,16,18,22]
-    # 5V Power: 2,4
-    # Ground: 6,9
-    GPIO.setmode(GPIO.BOARD)
-
-    mot1 = StepperMotor(gpio_pins=[12, 16, 18, 22], final_attachment_circumference_mm=11*PI)
-    mot2 = StepperMotor(gpio_pins=[7, 11, 13, 15], final_attachment_circumference_mm=50)
-
-    # mot1.run_length(length=50)
-    mot2.run_length(length=50)
-
-    GPIO.cleanup()
-
-
-if __name__ == "__main__":
-    main()

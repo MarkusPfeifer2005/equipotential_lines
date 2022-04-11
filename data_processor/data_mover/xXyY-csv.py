@@ -39,8 +39,7 @@ def prepare_for_my_net(img) -> torch.tensor:
 
     return img
 
-
-if __name__ == "__main__":
+def main():
     # load model
     device = torch.device("cpu")
     model = torch.load(r"D:\OneDrive - brg14.at\Desktop\data_processor\value_extractor\models\lcd_cnn.pt").to(device)
@@ -90,3 +89,7 @@ if __name__ == "__main__":
     with open(f"session{session}.csv", 'w', newline='') as csv_file:
         writer = csv.writer(csv_file)
         writer.writerows(labels)
+
+
+if __name__ == "__main__":
+    main()

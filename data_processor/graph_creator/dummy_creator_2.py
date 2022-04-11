@@ -35,13 +35,7 @@ def magic_math_function(p: tuple[int, int]) -> float:
     return V1 + V2  # +-?
 
 
-if __name__ == "__main__":
-    # get input
-    # ipt = input("1: 3d, 2: heatmap")
-    # if ipt == '':
-    #     ipt = '1'
-    #
-    # if ipt == '1':
+def main():
     data = []
     for x in range(0, x_max, step):
         for y in range(0, y_max, step):
@@ -62,21 +56,6 @@ if __name__ == "__main__":
 
     plt.show()
 
-    # elif ipt == '2':
-    #     data = []
-    #     for x in range(0, x_max, step):
-    #         row = []
-    #         for y in range(0, y_max, step):
-    #             if (x, y) == electrode_1 or (x, y) == electrode_2:
-    #                 v = 0
-    #             else:
-    #                 v = magic_math_function(p=(x, y))
-    #             print(f"{v = }")
-    #             row.append([x, y, v])
-    #         data.append(row)
-    #
-    #     data = np.array(data)
-    #     fig, ax = plt.subplots()
-    #     img = ax.imshow(data)
-    #     fig.tight_layout()
-    #     plt.show()
+
+if __name__ == "__main__":
+    main()
