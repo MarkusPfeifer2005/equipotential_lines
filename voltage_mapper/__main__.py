@@ -46,8 +46,14 @@ class ParameterHandler:
         "container_x_mm": 255,
         "container_y_mm": 150,
         "last_pos": (0, 0),
-        "last_session_name": os.getcwd().split('\\')[-1],
-        "step_mm": 5
+        "last_session": os.getcwd().split('\\')[-1],
+        "step_mm": 5,
+        "setup": {
+            "session_name": input("enter session name:"),
+            "voltage": input("enter voltage magnitude & AC/DC:"),
+            "electrode_type": input("enter electrode type:"),
+            "liquid": input("enter liquid:")
+        }
     }
 
     def __init__(self, filename: str = "parameters.json"):
