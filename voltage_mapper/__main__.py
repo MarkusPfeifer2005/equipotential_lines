@@ -52,8 +52,8 @@ class ParameterHandler:
             "session_name": input("enter session name:"),
             "voltage": input("enter voltage magnitude & AC/DC:"),
             "electrode_type": input("enter electrode type:"),
-            "liquid": input("enter liquid:")
-        }
+            "liquid": input("enter liquid:"),
+        },
     }
 
     def __init__(self, filename: str = "parameters.json"):
