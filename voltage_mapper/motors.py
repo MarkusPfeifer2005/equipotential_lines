@@ -28,6 +28,7 @@ class DCMotor:
 
 
 class StepperMotor:
+    """This class is supposed to control the 28BYJ-48 stepper motor."""
     sequence = [
         [1, 0, 0, 0],
         [1, 1, 0, 0],
@@ -52,23 +53,25 @@ class StepperMotor:
         self.gpio_pins = gpio_pins
         self.final_attachment_circumference_mm = final_attachment_circumference  # in mm
 
-        self.pos_cst_deg: int = 0  # int [0, 4096]
-        self.active_pins = [0, 0, 0, 0]
+        self.pos: int = 0  # int [0, 4096] | in custom degrees since the motor is restricted to them
+        self.last_active_pins = [0, 0, 0, 0]
 
         # Setting modes for pins
         for pin in self.gpio_pins:
             GPIO.setup(pin, GPIO.OUT)
 
     def run_angle(self, angle: int) -> None:  # angle in custom degrees
+        """Turns the motor a specific angle. Since a stepper motor can only move specific steps, the angle must be
+        provided in custom degrees."""
         # set position
         self.set_pos(angle)
 
         # assembling the sequence
-        if self.active_pins == [0, 0, 0, 0]:
+        if self.last_active_pins == [0, 0, 0, 0]:
             seq = self.seq
         else:
-            seq = self.seq[self.seq.index(self.active_pins):]
-            for i in self.seq[:self.seq.index(self.active_pins)]:
+            seq = self.seq[self.seq.index(self.last_active_pins):]
+            for i in self.seq[:self.seq.index(self.last_active_pins)]:
                 seq.append(i)
         # determine the direction the motor is spinning
         if angle < 0:
@@ -79,12 +82,16 @@ class StepperMotor:
             # activate/deactivate pins
             for pin, high_low in zip(self.gpio_pins, half_step):
                 GPIO.output(pin, high_low)
-            self.active_pins = half_step
+            self.last_active_pins = half_step
             time.sleep(0.001)
 
             # end the loop if target HAS been reached
             if idx == abs(angle):
                 break
+
+        # deactivate coils (essential to counter overheating)
+        for pin in self.gpio_pins:
+            GPIO.output(pin, 0)
 
     def run_length(self, length: float) -> None:
         """Uses the run angle method and runs based on a length."""
@@ -98,9 +105,9 @@ class StepperMotor:
         if not isinstance(angle, int):
             raise ValueError
 
-        self.pos_cst_deg += angle
+        self.pos += angle
 
-        while self.pos_cst_deg > self.one_rot:
-            self.pos_cst_deg -= self.one_rot
-        while self.pos_cst_deg < 0:
-            self.pos_cst_deg += self.one_rot
+        while self.pos > self.one_rot:
+            self.pos -= self.one_rot
+        while self.pos < 0:
+            self.pos += self.one_rot

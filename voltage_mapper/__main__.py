@@ -66,15 +66,14 @@ class ParameterHandler:
 
 
 def get_image(camera) -> numpy.array:  # works
-    # image = cv2.imread("test_images/LCD2.jpg")
-    # return cv2.resize(image, None, None, fx=0.1, fy=0.1)
     _, image = camera.read()
-    image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+    image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)  # make greyscale
     return image
 
 
-def move_pos(motor: StepperMotor, current_pos_mm: float, target_pos_mm: float):
-    travelling_distance = target_pos_mm - current_pos_mm
+def move_pos(motor: StepperMotor, current_pos: float, target_pos: float):
+    """From the voltage_mappers perspective move the motor relative to the current position."""
+    travelling_distance = target_pos - current_pos
     motor.run_length(length=travelling_distance)
 
 
@@ -84,8 +83,8 @@ def main():
     # Ground: 6,9
     GPIO.setmode(GPIO.BOARD)
 
-    mot_x = StepperMotor(gpio_pins=[7, 11, 13, 15], final_attachment_circumference_mm=50, reverse=True)
-    mot_y = StepperMotor(gpio_pins=[12, 16, 18, 22], final_attachment_circumference_mm=11*PI, reverse=True)
+    mot_x = StepperMotor(gpio_pins=[7, 11, 13, 15], final_attachment_circumference=50, reverse=True)
+    mot_y = StepperMotor(gpio_pins=[12, 16, 18, 22], final_attachment_circumference=11*PI, reverse=True)
 
     cam = cv2.VideoCapture(0)
 
@@ -93,9 +92,9 @@ def main():
     param_handler = ParameterHandler()
 
     for x in range(0, param_handler.parameters["container_x_mm"], param_handler.parameters["step_mm"]):
-        move_pos(motor=mot_x, current_pos_mm=param_handler.parameters["last_pos"][0], target_pos_mm=x)
+        move_pos(motor=mot_x, current_pos=param_handler.parameters["last_pos"][0], target_pos=x)
         for y in range(0, param_handler.parameters["container_y_mm"], param_handler.parameters["step_mm"]):
-            move_pos(motor=mot_y, current_pos_mm=param_handler.parameters["last_pos"][1], target_pos_mm=y)
+            move_pos(motor=mot_y, current_pos=param_handler.parameters["last_pos"][1], target_pos=y)
 
             # measuring
             # time.sleep(2)
