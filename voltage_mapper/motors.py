@@ -7,6 +7,7 @@ from math import pi as PI
 
 
 class DCMotor:
+    """Enables control of a basic DC-motor. The motor must be connected to an H-bridge!"""
     def __init__(self, gpio_pins: list[int]):
         self.gpio_pins = gpio_pins
 
@@ -14,12 +15,14 @@ class DCMotor:
         for pin in self.gpio_pins:
             GPIO.setup(pin, GPIO.OUT)
 
-    def run(self, direction: bool, duration: float):
+    def run(self, direction: bool, duration: float) -> None:
+        """Runs the motor for a given duration in the specified direction."""
         GPIO.output(self.gpio_pins[0], direction)
         GPIO.output(self.gpio_pins[1], not direction)
 
         time.sleep(duration)
 
+        # Stop the motor
         GPIO.output(self.gpio_pins[0], False)
         GPIO.output(self.gpio_pins[1], False)
 
@@ -36,18 +39,18 @@ class StepperMotor:
         [1, 0, 0, 1]
     ]
 
-    # hardware-properties of the motor
+    # Hardware-properties of the motor
     teeth_per_layer: int = 8
     teeth_layers: int = 4
     gear_reduction: int = 64
 
-    one_rot_cst_deg: int = teeth_per_layer * teeth_layers * gear_reduction * 2
+    one_rot: int = teeth_per_layer * teeth_layers * gear_reduction * 2  # in custom degrees
 
-    def __init__(self, gpio_pins: list[int], final_attachment_circumference_mm: float, reverse: bool = False):
+    def __init__(self, gpio_pins: list[int], final_attachment_circumference: float, reverse: bool = False):
         self.seq = list(reversed(self.sequence)) if reverse else self.sequence  # predefining rotation direction
 
         self.gpio_pins = gpio_pins
-        self.final_attachment_circumference_mm = final_attachment_circumference_mm  # in mm
+        self.final_attachment_circumference_mm = final_attachment_circumference  # in mm
 
         self.pos_cst_deg: int = 0  # int [0, 4096]
         self.active_pins = [0, 0, 0, 0]
@@ -56,9 +59,9 @@ class StepperMotor:
         for pin in self.gpio_pins:
             GPIO.setup(pin, GPIO.OUT)
 
-    def run_angle(self, angle_cst_deg: int):
+    def run_angle(self, angle: int) -> None:  # angle in custom degrees
         # set position
-        self.set_pos(angle_cst_deg)
+        self.set_pos(angle)
 
         # assembling the sequence
         if self.active_pins == [0, 0, 0, 0]:
@@ -68,7 +71,7 @@ class StepperMotor:
             for i in self.seq[:self.seq.index(self.active_pins)]:
                 seq.append(i)
         # determine the direction the motor is spinning
-        if angle_cst_deg < 0:
+        if angle < 0:
             seq.reverse()
 
         # only work with angles and rotations
@@ -80,23 +83,24 @@ class StepperMotor:
             time.sleep(0.001)
 
             # end the loop if target HAS been reached
-            if idx == abs(angle_cst_deg):
+            if idx == abs(angle):
                 break
 
-    def run_length(self, length: float):
+    def run_length(self, length: float) -> None:
+        """Uses the run angle method and runs based on a length."""
         required_rotations = length / self.final_attachment_circumference_mm
-        custom_degrees = self.one_rot_cst_deg * required_rotations
+        custom_degrees = self.one_rot * required_rotations
         cut_degrees = int(custom_degrees)
-        self.run_angle(angle_cst_deg=cut_degrees)
+        self.run_angle(angle=cut_degrees)
 
-    def set_pos(self, angle_cst_deg: int):
+    def set_pos(self, angle: int) -> None:  # angle in custom degrees
         # check if angle is int
-        if not isinstance(angle_cst_deg, int):
+        if not isinstance(angle, int):
             raise ValueError
 
-        self.pos_cst_deg += angle_cst_deg
+        self.pos_cst_deg += angle
 
-        while self.pos_cst_deg > self.one_rot_cst_deg:
-            self.pos_cst_deg -= self.one_rot_cst_deg
+        while self.pos_cst_deg > self.one_rot:
+            self.pos_cst_deg -= self.one_rot
         while self.pos_cst_deg < 0:
-            self.pos_cst_deg += self.one_rot_cst_deg
+            self.pos_cst_deg += self.one_rot
