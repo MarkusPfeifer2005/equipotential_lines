@@ -13,7 +13,11 @@ class ImageLibrary:  # works
     folder_convention: str = "session"
 
     def __init__(self):
-        # create unique directory name
+        # create image_library folder if not existing
+        if self.path not in os.listdir():
+            os.mkdir(self.path)
+
+        # create unique session-directory name
         directory = os.listdir(self.path)
         largest_num = 0
         for d in directory:
