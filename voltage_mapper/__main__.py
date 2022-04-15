@@ -104,7 +104,7 @@ def main():
 
     # move to sea level
     difference_sea_level = float(input("enter difference sea-level:"))
-    mot_z.run_length(length=difference_sea_level)
+    mot_z.run_length(length=difference_sea_level*2)
 
     # move and measure
     for z in range(0, param_handler.parameters["liquid_dimension"][2], param_handler.parameters["step_size"][2]):
@@ -123,7 +123,7 @@ def main():
                 param_handler.save_parameters()
 
     # move to surface
-    mot_z.run_length(length=-difference_sea_level)
+    mot_z.run_length(length=-difference_sea_level*2)
 
     # clean everything for next usage
     GPIO.cleanup()
