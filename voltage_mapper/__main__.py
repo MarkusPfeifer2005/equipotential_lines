@@ -35,21 +35,16 @@ class ImageLibrary:  # works
         try:
             cv2.imwrite(filename + self.extension, image)
         except Exception:
-            try:
-                open(filename + ".txt", 'w')
-            except Exception:
-                print(f"Error saving file ({filename}) as image or text!")
+            print(f"Error saving file ({filename}) as image or text!")
 
 
 class ParameterHandler:
     default_parameters = {
-        "container_x_mm": 255,
-        "container_y_mm": 150,
-        "last_pos": (0, 0),
-        "last_session": os.getcwd().split('\\')[-1],
-        "step_mm": 5,
+        "liquid_dimension": (255, 150, 10),
+        "step_size": (5, 5, 10),
+        "last_pos": (0, 0, 0),
         "setup": {
-            "session_name": input("enter session name:"),
+            "session_name": os.getcwd().split('\\')[-1],
             "voltage": input("enter voltage magnitude & AC/DC:"),
             "electrode_type": input("enter electrode type:"),
             "liquid": input("enter liquid:"),
@@ -84,36 +79,53 @@ def get_image(camera) -> numpy.array:  # works
 def move_pos(motor: StepperMotor, current_pos: float, target_pos: float):
     """From the voltage_mappers perspective move the motor relative to the current position."""
     travelling_distance = target_pos - current_pos
+    if motor.gpio_pins == [19, 21, 23, 29]:  # if the motor is mot_z
+        travelling_distance *= 2
     motor.run_length(length=travelling_distance)
 
 
 def main():
-    # gpio: [7,11,13,15],[12,16,18,22]
+    # gpio: [7,11,13,15],[12,16,18,22],[19,21,23,29]
     # 5V Power: 2,4
     # Ground: 6,9
     GPIO.setmode(GPIO.BOARD)
 
-    mot_x = StepperMotor(gpio_pins=[7, 11, 13, 15], final_attachment_circumference=50, reverse=True)
-    mot_y = StepperMotor(gpio_pins=[12, 16, 18, 22], final_attachment_circumference=11*PI, reverse=True)
-
+    # define camera
     cam = cv2.VideoCapture(0)
 
+    # handle parameters and data
     lib = ImageLibrary()  # Changes dir to session folder!
     param_handler = ParameterHandler()
 
-    for x in range(0, param_handler.parameters["container_x_mm"], param_handler.parameters["step_mm"]):
-        move_pos(motor=mot_x, current_pos=param_handler.parameters["last_pos"][0], target_pos=x)
-        for y in range(0, param_handler.parameters["container_y_mm"], param_handler.parameters["step_mm"]):
-            move_pos(motor=mot_y, current_pos=param_handler.parameters["last_pos"][1], target_pos=y)
+    # define motors
+    mot_x = StepperMotor(gpio_pins=[7, 11, 13, 15], final_attachment_circumference=50, reverse=True)
+    mot_y = StepperMotor(gpio_pins=[12, 16, 18, 22], final_attachment_circumference=11*PI, reverse=True)
+    mot_z = StepperMotor(gpio_pins=[19, 21, 23, 29], final_attachment_circumference=7.5*PI, reverse=False)
 
-            # measuring
-            # time.sleep(2)
-            lib.append(f"x{x}y{y}", get_image(cam))
+    # move to sea level
+    difference_sea_level = float(input("enter difference sea-level:"))
+    mot_z.run_length(length=difference_sea_level)
 
-            # save state backup
-            param_handler.parameters["last_pos"] = (x, y)
-            param_handler.save_parameters()
+    # move and measure
+    for z in range(0, param_handler.parameters["liquid_dimension"][2], param_handler.parameters["step_size"][2]):
+        move_pos(motor=mot_z, current_pos=param_handler.parameters["last_pos"][2], target_pos=z)
+        for x in range(0, param_handler.parameters["liquid_dimension"][0], param_handler.parameters["step_size"][0]):
+            move_pos(motor=mot_x, current_pos=param_handler.parameters["last_pos"][0], target_pos=x)
+            for y in range(0, param_handler.parameters["liquid_dimension"][1],
+                           param_handler.parameters["step_size"][1]):
+                move_pos(motor=mot_y, current_pos=param_handler.parameters["last_pos"][1], target_pos=y)
 
+                # measuring
+                lib.append(f"x{x}y{y}z{z}", get_image(cam))
+
+                # save state backup
+                param_handler.parameters["last_pos"] = (x, y, z)
+                param_handler.save_parameters()
+
+    # move to surface
+    mot_z.run_length(length=-difference_sea_level)
+
+    # clean everything for next usage
     GPIO.cleanup()
 
 

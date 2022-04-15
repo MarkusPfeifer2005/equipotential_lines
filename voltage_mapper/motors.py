@@ -3,7 +3,6 @@
 from RPi import GPIO as GPIO
 import time
 import itertools
-from math import pi as PI
 
 
 class DCMotor:
@@ -77,21 +76,24 @@ class StepperMotor:
         if angle < 0:
             seq.reverse()
 
-        # only work with angles and rotations
-        for idx, half_step in enumerate(itertools.cycle(seq)):
-            # activate/deactivate pins
-            for pin, high_low in zip(self.gpio_pins, half_step):
-                GPIO.output(pin, high_low)
-            self.last_active_pins = half_step
-            time.sleep(0.001)
+        try:
+            # only work with angles and rotations
+            for idx, half_step in enumerate(itertools.cycle(seq)):
+                # activate/deactivate pins
+                for pin, high_low in zip(self.gpio_pins, half_step):
+                    GPIO.output(pin, high_low)
+                self.last_active_pins = half_step
+                time.sleep(0.001)
 
-            # end the loop if target HAS been reached
-            if idx == abs(angle):
-                break
+                # end the loop if target HAS been reached
+                if idx == abs(angle):
+                    break
 
-        # deactivate coils (essential to counter overheating)
-        for pin in self.gpio_pins:
-            GPIO.output(pin, 0)
+            # deactivate coils (essential to counter overheating)
+            for pin in self.gpio_pins:
+                GPIO.output(pin, 0)
+        except KeyboardInterrupt:  # prevents motor from overheating if process is interrupted
+            GPIO.cleanup()
 
     def run_length(self, length: float) -> None:
         """Uses the run angle method and runs based on a length."""
