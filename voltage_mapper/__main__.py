@@ -107,9 +107,12 @@ class Arm:
                 math.acos(
                     (
                         self.arm1_length**2 + self.arm2_length**2 -
-                        math.sqrt(  # "shadow"
-                            math.sqrt(pos[0]**2 + pos[1]**2)**2 +
-                            abs(self.arm0_height - pos[2]+self.arm3_length)**2
+                        math.sqrt(
+                            math.sqrt(  # "shadow"
+                                math.sqrt(pos[0] ** 2 + pos[1] ** 2) ** 2 +
+                                abs(self.arm0_height - pos[2] + self.arm3_length) ** 2
+                            )**2 +
+                            abs(self.arm0_height - pos[2] + self.arm3_length)**2
                         )**2
                     ) / 2*self.arm1_length*self.arm2_length
                 )
