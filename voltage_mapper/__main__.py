@@ -39,19 +39,20 @@ class ImageLibrary:  # works
 
 
 class ParameterHandler:
-    default_parameters = {
-        "liquid_dimension": (255, 150, 10),
-        "step_size": (5, 5, 10),
-        "last_pos": (0, 0, 0),
-        "setup": {
-            "session_name": os.getcwd().split('\\')[-1],
-            "voltage": input("enter voltage magnitude & AC/DC:"),
-            "electrode_type": input("enter electrode type:"),
-            "liquid": input("enter liquid:"),
-        },
-    }
-
     def __init__(self, filename: str = "parameters.json"):
+        self.default_parameters = {
+            "liquid_dimension": (255, 150, 10),
+            "step_size": (5, 5, 10),
+            "last_pos": (0, 0, 0),
+            "setup": {
+                "session_name": os.getcwd().split('\\')[-1],
+                # FIXME: /home/pi/Desktop/equipotential_lines/voltage_mapper
+                "voltage": input("enter voltage magnitude & AC/DC:"),
+                "electrode_type": input("enter electrode type:"),
+                "liquid": input("enter liquid:"),
+            },
+        }
+
         self.filename = filename
         try:
             with open(self.filename) as file:

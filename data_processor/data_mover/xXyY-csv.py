@@ -1,5 +1,3 @@
-"""Just copy file into folder and run it!"""
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -9,6 +7,8 @@ import cv2
 from PIL import Image
 import os
 import csv
+from tkinter import filedialog
+
 
 
 class MyCNN(nn.Module):
@@ -39,10 +39,11 @@ def prepare_for_my_net(img) -> torch.tensor:
 
     return img
 
+
 def main():
     # load model
     device = torch.device("cpu")
-    model = torch.load(r"D:\OneDrive - brg14.at\Desktop\data_processor\value_extractor\models\lcd_cnn.pt").to(device)
+    model = torch.load(r"data_processor/value_extractor/models/lcd_cnn_20.pt").to(device)
     model.eval()
 
     # roi values
