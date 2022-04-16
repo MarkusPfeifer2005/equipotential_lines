@@ -2,7 +2,7 @@ import cv2
 import json
 import numpy
 import os
-from math import pi as PI
+import math
 from motors import StepperMotor
 import RPi.GPIO as GPIO
 
@@ -44,13 +44,13 @@ class ParameterHandler:
             "liquid_dimension": (255, 150, 10),
             "step_size": (5, 5, 10),
             "last_pos": (0, 0, 0),
-            "setup": {
-                "session_name": os.getcwd().split('\\')[-1],
-                # FIXME: /home/pi/Desktop/equipotential_lines/voltage_mapper
-                "voltage": input("enter voltage magnitude & AC/DC:"),
-                "electrode_type": input("enter electrode type:"),
-                "liquid": input("enter liquid:"),
-            },
+            # "setup": {
+            #     "session_name": os.getcwd().split('\\')[-1],
+            #     # FIXME: /home/pi/Desktop/equipotential_lines/voltage_mapper
+            #     "voltage": input("enter voltage magnitude & AC/DC:"),
+            #     "electrode_type": input("enter electrode type:"),
+            #     "liquid": input("enter liquid:"),
+            # },
         }
 
         self.filename = filename
@@ -71,18 +71,68 @@ class ParameterHandler:
             json.dump(self.parameters, file)
 
 
+class Arm:
+    def __init__(self, location: tuple[float, float, float], start_pos: tuple[float, float, float] = (0, 0, 0)):
+        self.mot_rot = StepperMotor(gpio_pins=[7, 11, 13, 15], reverse=True)
+        self.mot_j1 = StepperMotor(gpio_pins=[12, 16, 18, 22], reverse=True)
+        self.mot_j2 = StepperMotor(gpio_pins=[19, 21, 23, 29], reverse=False)
+
+        self.arm0_height: float = 103.3
+        self.arm1_length: float = 115.9
+        self.arm2_length: float = 95.9
+        self.arm3_length: float = 80
+
+        self.location = location
+        self.pos = start_pos
+
+        # set the right angles to the
+        angles: dict = self.get_angles(pos=start_pos)
+        self.mot_rot.set_pos(angle=angles["rot"])
+        self.mot_j1.set_pos(angle=angles["j1"])
+        self.mot_j2.set_pos(angle=angles["j2"])
+
+    def get_angles(self, pos: tuple[float, float, float]) -> dict:
+        try:
+            rot = math.degrees(math.cos(pos[0]))
+            j1 = math.degrees(
+                math.atan(
+                    math.sqrt(  # "shadow"
+                        math.sqrt(pos[0] ** 2 + pos[1] ** 2) ** 2 +
+                        abs(self.arm0_height - pos[2] + self.arm3_length) ** 2
+                    )
+                    / abs(self.arm0_height - pos[2]+self.arm3_length)
+                )
+            )
+            j2 = math.degrees(
+                math.acos(
+                    (
+                        self.arm1_length**2 + self.arm2_length**2 -
+                        math.sqrt(  # "shadow"
+                            math.sqrt(pos[0]**2 + pos[1]**2)**2 +
+                            abs(self.arm0_height - pos[2]+self.arm3_length)**2
+                        )**2
+                    ) / 2*self.arm1_length*self.arm2_length
+                )
+            )
+            return {"rot": rot, "j1": j1, "j2": j2}
+        except Exception:
+            print(f"target_pos {pos} not in range of arm")
+            exit(-1)
+
+    def move_pos(self, target_pos: tuple[float, float, float]) -> None:
+        # calculate angles
+        angles: dict = self.get_angles(pos=target_pos)
+        self.mot_rot.run_pos(pos=angles["rot"], hold=False)
+        self.mot_j1.run_pos(pos=angles["j1"], hold=False)
+        self.mot_j2.run_pos(pos=angles["j2"], hold=False)
+
+        self.pos = target_pos
+
+
 def get_image(camera) -> numpy.array:  # works
     _, image = camera.read()
     image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)  # make greyscale
     return image
-
-
-def move_pos(motor: StepperMotor, current_pos: float, target_pos: float):
-    """From the voltage_mappers perspective move the motor relative to the current position."""
-    travelling_distance = target_pos - current_pos
-    if motor.gpio_pins == [19, 21, 23, 29]:  # if the motor is mot_z
-        travelling_distance *= 2
-    motor.run_length(length=travelling_distance)
 
 
 def main():
@@ -91,40 +141,13 @@ def main():
     # Ground: 6,9
     GPIO.setmode(GPIO.BOARD)
 
-    # define camera
-    cam = cv2.VideoCapture(0)
+    # cam = cv2.VideoCapture(0)
+    # lib = ImageLibrary()  # Changes dir to session folder!
+    # param_handler = ParameterHandler()
+    arm = Arm(location=(0, 0, 0), start_pos=(40, 0, 2))
 
-    # handle parameters and data
-    lib = ImageLibrary()  # Changes dir to session folder!
-    param_handler = ParameterHandler()
-
-    # define motors
-    mot_x = StepperMotor(gpio_pins=[7, 11, 13, 15], final_attachment_circumference=50, reverse=True)
-    mot_y = StepperMotor(gpio_pins=[12, 16, 18, 22], final_attachment_circumference=11*PI, reverse=True)
-    mot_z = StepperMotor(gpio_pins=[19, 21, 23, 29], final_attachment_circumference=7.5*PI, reverse=False)
-
-    # move to sea level
-    difference_sea_level = float(input("enter difference sea-level:"))
-    mot_z.run_length(length=difference_sea_level*2)
-
-    # move and measure
-    for z in range(0, param_handler.parameters["liquid_dimension"][2], param_handler.parameters["step_size"][2]):
-        move_pos(motor=mot_z, current_pos=param_handler.parameters["last_pos"][2], target_pos=z)
-        for x in range(0, param_handler.parameters["liquid_dimension"][0], param_handler.parameters["step_size"][0]):
-            move_pos(motor=mot_x, current_pos=param_handler.parameters["last_pos"][0], target_pos=x)
-            for y in range(0, param_handler.parameters["liquid_dimension"][1],
-                           param_handler.parameters["step_size"][1]):
-                move_pos(motor=mot_y, current_pos=param_handler.parameters["last_pos"][1], target_pos=y)
-
-                # measuring
-                lib.append(f"x{x}y{y}z{z}", get_image(cam))
-
-                # save state backup
-                param_handler.parameters["last_pos"] = (x, y, z)
-                param_handler.save_parameters()
-
-    # move to surface
-    mot_z.run_length(length=-difference_sea_level*2)
+    # test
+    arm.move_pos(target_pos=(60, 0, 5))
 
     # clean everything for next usage
     GPIO.cleanup()

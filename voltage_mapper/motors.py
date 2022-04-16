@@ -44,24 +44,22 @@ class StepperMotor:
     teeth_layers: int = 4
     gear_reduction: int = 64
 
-    one_rot: int = teeth_per_layer * teeth_layers * gear_reduction * 2  # in custom degrees
+    steps_per_rot: int = teeth_per_layer * teeth_layers * gear_reduction * 2
 
-    def __init__(self, gpio_pins: list[int], final_attachment_circumference: float, reverse: bool = False):
+    def __init__(self, gpio_pins: list[int], reverse: bool = False):
         self.seq = list(reversed(self.sequence)) if reverse else self.sequence  # predefining rotation direction
 
         self.gpio_pins = gpio_pins
-        self.final_attachment_circumference_mm = final_attachment_circumference  # in mm
 
-        self.pos: int = 0  # int [0, 4096] | in custom degrees since the motor is restricted to them
+        self.pos: float = 0  # value between 0 and 360
         self.last_active_pins = [0, 0, 0, 0]
 
         # Setting modes for pins
         for pin in self.gpio_pins:
             GPIO.setup(pin, GPIO.OUT)
 
-    def run_angle(self, angle: int) -> None:  # angle in custom degrees
-        """Turns the motor a specific angle. Since a stepper motor can only move specific steps, the angle must be
-        provided in custom degrees."""
+    def run_angle(self, angle: float, hold: bool = False) -> None:  # angle in custom degrees
+        """Turns the motor a specific angle."""
         # set position
         self.set_pos(angle)
 
@@ -76,8 +74,8 @@ class StepperMotor:
         if angle < 0:
             seq.reverse()
 
+        # rotate the motor
         try:
-            # only work with angles and rotations
             for idx, half_step in enumerate(itertools.cycle(seq)):
                 # activate/deactivate pins
                 for pin, high_low in zip(self.gpio_pins, half_step):
@@ -86,30 +84,31 @@ class StepperMotor:
                 time.sleep(0.001)
 
                 # end the loop if target HAS been reached
-                if idx == abs(angle):
+                # get the closest step to desired position
+                #   360   :   4096
+                #   angle :   angle in steps
+                angle_in_steps = round(self.steps_per_rot * abs(angle) / 360)
+
+                if idx == angle_in_steps:
                     break
 
             # deactivate coils (essential to counter overheating)
-            for pin in self.gpio_pins:
-                GPIO.output(pin, 0)
+            if not hold:
+                for pin in self.gpio_pins:
+                    GPIO.output(pin, 0)
         except KeyboardInterrupt:  # prevents motor from overheating if process is interrupted
             GPIO.cleanup()
 
-    def run_length(self, length: float) -> None:
-        """Uses the run angle method and runs based on a length."""
-        required_rotations = length / self.final_attachment_circumference_mm
-        custom_degrees = self.one_rot * required_rotations
-        cut_degrees = int(custom_degrees)
-        self.run_angle(angle=cut_degrees)
+    def run_pos(self, pos: int, hold: bool = False) -> None:
+        """Runs the motor to a given position."""
+        angle = pos - self.pos
+        self.run_angle(angle=angle, hold=hold)
 
-    def set_pos(self, angle: int) -> None:  # angle in custom degrees
-        # check if angle is int
-        if not isinstance(angle, int):
-            raise ValueError
-
+    def set_pos(self, angle: float) -> None:  # angle in custom degrees
+        """Sets the position the motor is at."""
         self.pos += angle
 
-        while self.pos > self.one_rot:
-            self.pos -= self.one_rot
+        while self.pos > 360:
+            self.pos -= 360
         while self.pos < 0:
-            self.pos += self.one_rot
+            self.pos += 360
