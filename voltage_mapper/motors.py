@@ -58,7 +58,7 @@ class StepperMotor:
         for pin in self.gpio_pins:
             GPIO.setup(pin, GPIO.OUT)
 
-    def run_angle(self, angle: float, hold: bool = False) -> None:  # angle in custom degrees
+    def run_angle(self, angle: float, velocity: float = 1, hold: bool = False) -> None:  # angle in custom degrees
         """Turns the motor a specific angle."""
         # set position
         self.set_pos(angle)
@@ -81,7 +81,7 @@ class StepperMotor:
                 for pin, high_low in zip(self.gpio_pins, half_step):
                     GPIO.output(pin, high_low)
                 self.last_active_pins = half_step
-                time.sleep(0.001)
+                time.sleep(0.001 / velocity)
 
                 # end the loop if target HAS been reached
                 # get the closest step to desired position
@@ -99,10 +99,10 @@ class StepperMotor:
         except KeyboardInterrupt:  # prevents motor from overheating if process is interrupted
             GPIO.cleanup()
 
-    def run_pos(self, pos: int, hold: bool = False) -> None:
+    def run_pos(self, pos: int, velocity: float = 1, hold: bool = False) -> None:
         """Runs the motor to a given position."""
         angle = pos - self.pos
-        self.run_angle(angle=angle, hold=hold)
+        self.run_angle(angle=angle, velocity=velocity, hold=hold)
 
     def set_pos(self, angle: float) -> None:  # angle in custom degrees
         """Sets the position the motor is at."""

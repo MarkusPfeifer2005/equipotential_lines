@@ -77,7 +77,7 @@ class Arm:
         self.mot_j1 = StepperMotor(gpio_pins=[12, 16, 18, 22], reverse=True)
         self.mot_j2 = StepperMotor(gpio_pins=[19, 21, 23, 29], reverse=False)
 
-        self.arm0_height: float = 103.3
+        self.arm0_height: float = 103
         self.arm1_length: float = 115.9
         self.arm2_length: float = 95.9
         self.arm3_length: float = 80
@@ -92,34 +92,62 @@ class Arm:
         self.mot_j2.set_pos(angle=angles["j2"])
 
     def get_angles(self, pos: tuple[float, float, float]) -> dict:
+        """Takes a point (x, y, z) and returns the absolute angles of the motors in the form of a dictionary."""
+        # all joints @ 0°:
+        # o--o--o
+        # |     |
+
+        # rot @ 0°:
+        #   ^
+        #   |
+        # --o--
+        #   |
+
+        def get_angle_triangle(a: float, b: float, c: float, angle: str) -> float:
+            """https://www.mathsisfun.com/algebra/trig-solving-sss-triangles.html"""
+            # configuration:
+            #   C
+            # a/ \b
+            # A---B
+            #   c
+            if angle.lower() == 'a':
+                return math.degrees(math.acos((b ** 2 + c ** 2 - c ** 2) / 2 * b * c))
+            elif angle.lower() == 'b':
+                return math.degrees(math.acos((c ** 2 + a ** 2 - b ** 2) / 2 * a * c))
+            elif angle.lower() == 'c':
+                return math.degrees(math.acos((a ** 2 + b ** 2 - c ** 2) / 2 * a * b))
+            else:
+                raise ValueError("Angle must be 'a', 'b' or 'c'!")
+
         try:
-            rot = math.degrees(math.cos(pos[0]))
-            j1 = math.degrees(
-                math.atan(
-                    math.sqrt(  # "shadow"
-                        math.sqrt(pos[0] ** 2 + pos[1] ** 2) ** 2 +
-                        abs(self.arm0_height - pos[2] + self.arm3_length) ** 2
-                    )
-                    / abs(self.arm0_height - pos[2]+self.arm3_length)
-                )
+            # Calculate rot. The rot is given as an absolute position so run_pos must be used!
+            if pos[0] > 0 and pos[1] >= 0:
+                rot = math.degrees(math.atan(pos[1]/pos[0])) + 270
+            elif pos[0] <= 0 > pos[1]:
+                rot = math.degrees(math.atan(abs(pos[0])/pos[1]))
+            elif pos[0] < 0 and pos[1] <= 0:
+                rot = math.degrees(math.atan(abs(pos[1]) / abs(pos[0]))) + 90
+            elif pos[1] < 0 >= pos[0]:
+                rot = math.degrees(math.atan(pos[0] / abs(pos[1]))) + 180
+            elif pos[0] == pos[1] == 0:
+                rot = self.mot_rot.pos
+            else:
+                raise Exception("Problem when calculating rot!")
+
+            shadow = math.sqrt(pos[0] ** 2 + pos[1] ** 2)  # the "shadow" of the arm on the x-y-plane
+            height_diff = pos[2] + self.arm3_length - self.arm0_height  # can be positive and negative
+            arm1_and_arm2 = math.sqrt(shadow**2 + height_diff**2)
+
+            j1 = (
+                math.degrees(math.atan(height_diff/shadow))
+                +
+                get_angle_triangle(a=self.arm2_length, b=self.arm1_length, c=arm1_and_arm2, angle='A')
             )
-            j2 = math.degrees(
-                math.acos(
-                    (
-                        self.arm1_length**2 + self.arm2_length**2 -
-                        math.sqrt(
-                            math.sqrt(  # "shadow"
-                                math.sqrt(pos[0] ** 2 + pos[1] ** 2) ** 2 +
-                                abs(self.arm0_height - pos[2] + self.arm3_length) ** 2
-                            )**2 +
-                            abs(self.arm0_height - pos[2] + self.arm3_length)**2
-                        )**2
-                    ) / 2*self.arm1_length*self.arm2_length
-                )
-            )
+
+            j2 = get_angle_triangle(a=self.arm2_length, b=self.arm1_length, c=arm1_and_arm2, angle='C')
             return {"rot": rot, "j1": j1, "j2": j2}
         except Exception:
-            print(f"target_pos {pos} not in range of arm")
+            print(f"Target position {pos} not in range of arm!")
             exit(-1)
 
     def move_pos(self, target_pos: tuple[float, float, float]) -> None:
