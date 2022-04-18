@@ -111,11 +111,11 @@ class Arm:
             # A---B
             #   c
             if angle.lower() == 'a':
-                return math.degrees(math.acos((b ** 2 + c ** 2 - c ** 2) / 2 * b * c))
+                return math.degrees(math.acos((b ** 2 + c ** 2 - a ** 2) / (2 * b * a)))
             elif angle.lower() == 'b':
-                return math.degrees(math.acos((c ** 2 + a ** 2 - b ** 2) / 2 * a * c))
+                return math.degrees(math.acos((c ** 2 + a ** 2 - b ** 2) / (2 * a * c)))
             elif angle.lower() == 'c':
-                return math.degrees(math.acos((a ** 2 + b ** 2 - c ** 2) / 2 * a * b))
+                return math.degrees(math.acos((a ** 2 + b ** 2 - c ** 2) / (2 * a * b)))
             else:
                 raise ValueError("Angle must be 'a', 'b' or 'c'!")
 
@@ -141,10 +141,12 @@ class Arm:
             j1 = (
                 math.degrees(math.atan(height_diff/shadow))
                 +
+                # rot = 270.0, shadow = 40.0, height_diff = -21, arm1_and_arm2 = 45.17742799230607
                 get_angle_triangle(a=self.arm2_length, b=self.arm1_length, c=arm1_and_arm2, angle='A')
             )
 
             j2 = get_angle_triangle(a=self.arm2_length, b=self.arm1_length, c=arm1_and_arm2, angle='C')
+
             return {"rot": rot, "j1": j1, "j2": j2}
         except Exception:
             print(f"Target position {pos} not in range of arm!")

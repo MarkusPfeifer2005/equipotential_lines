@@ -58,7 +58,7 @@ class StepperMotor:
         for pin in self.gpio_pins:
             GPIO.setup(pin, GPIO.OUT)
 
-    def run_angle(self, angle: float, velocity: float = 1, hold: bool = False) -> None:  # angle in custom degrees
+    def run_angle(self, angle: float, velocity: float = 1, hold: bool = False) -> None:
         """Turns the motor a specific angle."""
         # set position
         self.set_pos(angle)
@@ -104,7 +104,7 @@ class StepperMotor:
         angle = pos - self.pos
         self.run_angle(angle=angle, velocity=velocity, hold=hold)
 
-    def set_pos(self, angle: float) -> None:  # angle in custom degrees
+    def set_pos(self, angle: float) -> None:
         """Sets the position the motor is at."""
         self.pos += angle
 
