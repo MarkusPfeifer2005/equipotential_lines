@@ -93,16 +93,6 @@ class Arm:
 
     def get_angles(self, pos: tuple[float, float, float]) -> dict:
         """Takes a point (x, y, z) and returns the absolute angles of the motors in the form of a dictionary."""
-        # all joints @ 0°:
-        # o--o--o
-        # |     |
-
-        # rot @ 0°:
-        #   ^
-        #   |
-        # --o--
-        #   |
-
         def get_angle_triangle(a: float, b: float, c: float, angle: str) -> float:
             """https://www.mathsisfun.com/algebra/trig-solving-sss-triangles.html"""
             # configuration:
@@ -121,18 +111,8 @@ class Arm:
 
         try:
             # Calculate rot. The rot is given as an absolute position so run_pos must be used!
-            if pos[0] > 0 and pos[1] >= 0:
-                rot = math.degrees(math.atan(pos[1]/pos[0])) + 270
-            elif pos[0] <= 0 > pos[1]:
-                rot = math.degrees(math.atan(abs(pos[0])/pos[1]))
-            elif pos[0] < 0 and pos[1] <= 0:
-                rot = math.degrees(math.atan(abs(pos[1]) / abs(pos[0]))) + 90
-            elif pos[1] < 0 >= pos[0]:
-                rot = math.degrees(math.atan(pos[0] / abs(pos[1]))) + 180
-            elif pos[0] == pos[1] == 0:
-                rot = self.mot_rot.pos
-            else:
-                raise Exception("Problem when calculating rot!")
+            rot = math.degrees(math.atan2(pos[1], pos[0]))  # is: (y, x) for some reason...
+            rot += 360 if rot < 0 else + 0
 
             shadow = math.sqrt(pos[0] ** 2 + pos[1] ** 2)  # the "shadow" of the arm on the x-y-plane
             height_diff = pos[2] + self.arm3_length - self.arm0_height  # can be positive and negative
