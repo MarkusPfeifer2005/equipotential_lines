@@ -72,15 +72,16 @@ class ParameterHandler:
 
 
 class Arm:
+    arm0_height: float = 103
+    arm1_length: float = 115.9
+    arm2_length: float = 95.9
+    arm3_length: float = 80
+
+
     def __init__(self, location: tuple[float, float, float], start_pos: tuple[float, float, float] = (0, 0, 0)):
-        self.mot_rot = StepperMotor(gpio_pins=[7, 11, 13, 15], reverse=True)
+        self.mot_rot = StepperMotor(gpio_pins=[7, 11, 13, 15], reverse=False)
         self.mot_j1 = StepperMotor(gpio_pins=[12, 16, 18, 22], reverse=True)
         self.mot_j2 = StepperMotor(gpio_pins=[19, 21, 23, 29], reverse=False)
-
-        self.arm0_height: float = 103
-        self.arm1_length: float = 115.9
-        self.arm2_length: float = 95.9
-        self.arm3_length: float = 80
 
         self.location = location
         self.pos = start_pos
@@ -95,49 +96,58 @@ class Arm:
         """Takes a point (x, y, z) and returns the absolute angles of the motors in the form of a dictionary."""
         def get_angle_triangle(a: float, b: float, c: float, angle: str) -> float:
             """https://www.mathsisfun.com/algebra/trig-solving-sss-triangles.html"""
+            a, b, c = abs(a), abs(b), abs(c)
             # configuration:
             #   C
-            # a/ \b
+            # b/ \a
             # A---B
             #   c
             if angle.lower() == 'a':
-                return math.degrees(math.acos((b ** 2 + c ** 2 - a ** 2) / (2 * b * a)))
+                if b + c == a:
+                    return 180
+                elif b + a == c or c + a == b:
+                    return 0
+                else:
+                    return math.degrees(math.acos((b ** 2 + c ** 2 - a ** 2) / (2 * b * a)))
             elif angle.lower() == 'b':
-                return math.degrees(math.acos((c ** 2 + a ** 2 - b ** 2) / (2 * a * c)))
+                if c + a == b:
+                    return 180
+                elif c + b == a or a + b == c:
+                    return 0
+                else:
+                    return math.degrees(math.acos((c ** 2 + a ** 2 - b ** 2) / (2 * a * c)))
             elif angle.lower() == 'c':
-                return math.degrees(math.acos((a ** 2 + b ** 2 - c ** 2) / (2 * a * b)))
+                if a + b == c:
+                    return 180
+                elif a + c == b or b + c == a:
+                    return 0
+                else:
+                    return math.degrees(math.acos((a ** 2 + b ** 2 - c ** 2) / (2 * a * b)))
             else:
                 raise ValueError("Angle must be 'a', 'b' or 'c'!")
+        
+        rot = math.degrees(math.atan2(pos[1], pos[0]))  # is: (y, x) for some reason...
+        rot = rot + 360 if rot < 0 else rot
 
-        try:
-            # Calculate rot. The rot is given as an absolute position so run_pos must be used!
-            rot = math.degrees(math.atan2(pos[1], pos[0]))  # is: (y, x) for some reason...
-            rot += 360 if rot < 0 else + 0
+        shadow = math.sqrt(pos[0] ** 2 + pos[1] ** 2)  # the "shadow" of the arm on the x-y-plane
+        height_diff = pos[2] + self.arm3_length - self.arm0_height  # can be positive and negative
+        arm1_and_arm2 = math.sqrt(shadow**2 + height_diff**2)
+        origin_j3 = math.sqrt(pos[0]**2 + pos[1]**2 + (pos[2] + self.arm3_length)**2)
 
-            shadow = math.sqrt(pos[0] ** 2 + pos[1] ** 2)  # the "shadow" of the arm on the x-y-plane
-            height_diff = pos[2] + self.arm3_length - self.arm0_height  # can be positive and negative
-            arm1_and_arm2 = math.sqrt(shadow**2 + height_diff**2)
+        j1 = 180 - get_angle_triangle(a=arm1_and_arm2, b=self.arm0_height, c=origin_j3, angle='C') \
+            - get_angle_triangle(a=self.arm2_length, b=self.arm1_length, c=arm1_and_arm2, angle='A')
 
-            j1 = (
-                math.degrees(math.atan(height_diff/shadow))
-                +
-                # rot = 270.0, shadow = 40.0, height_diff = -21, arm1_and_arm2 = 45.17742799230607
-                get_angle_triangle(a=self.arm2_length, b=self.arm1_length, c=arm1_and_arm2, angle='A')
-            )
+        j2 = get_angle_triangle(a=self.arm2_length, b=self.arm1_length, c=arm1_and_arm2, angle='C')
 
-            j2 = get_angle_triangle(a=self.arm2_length, b=self.arm1_length, c=arm1_and_arm2, angle='C')
+        return {"rot": rot, "j1": j1, "j2": j2}
 
-            return {"rot": rot, "j1": j1, "j2": j2}
-        except Exception:
-            print(f"Target position {pos} not in range of arm!")
-            exit(-1)
 
     def move_pos(self, target_pos: tuple[float, float, float]) -> None:
         # calculate angles
         angles: dict = self.get_angles(pos=target_pos)
-        self.mot_rot.run_pos(pos=angles["rot"], hold=False)
-        self.mot_j1.run_pos(pos=angles["j1"], hold=False)
-        self.mot_j2.run_pos(pos=angles["j2"], hold=False)
+        self.mot_rot.run_pos(pos=angles["rot"], velocity=.3, hold=False)
+        self.mot_j1.run_pos(pos=angles["j1"], velocity=.3, hold=False)
+        self.mot_j2.run_pos(pos=angles["j2"], velocity=.3, hold=False)
 
         self.pos = target_pos
 
@@ -157,10 +167,11 @@ def main():
     # cam = cv2.VideoCapture(0)
     # lib = ImageLibrary()  # Changes dir to session folder!
     # param_handler = ParameterHandler()
-    arm = Arm(location=(0, 0, 0), start_pos=(40, 0, 2))
+    arm = Arm(location=(0, 0, 0), start_pos=(0, 211.8, 23))
 
     # test
-    arm.move_pos(target_pos=(60, 0, 5))
+    arm.move_pos(target_pos=(14, 6, 2))
+    arm.move_pos(target_pos=(0, 211.8, 23))
 
     # clean everything for next usage
     GPIO.cleanup()
