@@ -77,7 +77,6 @@ class Arm:
     arm2_length: float = 95.9
     arm3_length: float = 80
 
-
     def __init__(self, location: tuple[float, float, float], start_pos: tuple[float, float, float] = (0, 0, 0)):
         self.mot_rot = StepperMotor(gpio_pins=[7, 11, 13, 15], reverse=False)
         self.mot_j1 = StepperMotor(gpio_pins=[12, 16, 18, 22], reverse=True)
@@ -140,7 +139,6 @@ class Arm:
         j2 = get_angle_triangle(a=self.arm2_length, b=self.arm1_length, c=arm1_and_arm2, angle='C')
 
         return {"rot": rot, "j1": j1, "j2": j2}
-
 
     def move_pos(self, target_pos: tuple[float, float, float]) -> None:
         # calculate angles
