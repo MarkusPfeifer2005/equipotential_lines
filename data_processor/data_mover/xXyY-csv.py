@@ -7,8 +7,6 @@ import cv2
 from PIL import Image
 import os
 import csv
-from tkinter import filedialog
-
 
 
 class MyCNN(nn.Module):
