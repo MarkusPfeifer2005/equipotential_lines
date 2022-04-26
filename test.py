@@ -1,6 +1,5 @@
 import unittest
-from voltage_mapper import __main__
-import math
+from build import __main__
 
 
 # class TestDigitSorter(unittest.TestCase):

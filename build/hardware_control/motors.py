@@ -1,5 +1,3 @@
-# See: https://www.youtube.com/watch?v=pbCdNh0TiUo for wiring!
-
 from RPi import GPIO as GPIO
 import time
 import itertools
