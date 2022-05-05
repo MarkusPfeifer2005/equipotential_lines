@@ -1,17 +1,29 @@
 import json
 import csv
 import os
-from math import pi as PI
-from hardware_control.motors import StepperMotor
-import RPi.GPIO as GPIO
+import math
+import serial
+from RPi import GPIO as GPIO
+from build.motors import StepperMotor
 
 
 class BasicHandler:
+    """Abstract Class for custom file handlers."""
     def __init__(self, path):
         self.path = path
 
+    def __getnewargs__(self):
+        pass
+
+    def __setitem__(self, key, value):
+        pass
+
+    def __getitem__(self, item):
+        pass
+
 
 class ParameterHandler(BasicHandler):
+    """Ths class organizes the parameters and saves them in a .json file."""
     default_parameters = {
         "area_to_map": (255, 150, 10),
         "step_size": (5, 5, 10),
@@ -70,7 +82,24 @@ class DataHandler(BasicHandler):
             return list(csv.reader(csv_file))
 
 
+class Master:
+    """Communicates with raspberry pi pico via UART-protocol."""
+    def __init__(self, port: str = "/dev/ttyS0", baudrate: int = 9600):
+        self.ser = serial.Serial(port=port, baudrate=baudrate)
+        print(self.ser)
+
+    def send(self, msg: str) -> None:
+        """Sends a message to the client/slave."""
+        msg += "\n"
+        self.ser.write(msg.encode())
+
+    def receive(self) -> str:
+        """Waits until new message is received and returns it as string."""
+        return self.ser.read_until().decode()
+
+
 class Crane:
+    """Class to control the crane-like machine. The machine must be manually moved into its starting position."""
     def __init__(self, start_pos: tuple = (0, 0, 0)):
         self.mot = {
             'x': StepperMotor(gpio_pins=[7, 11, 13, 15], reverse=True),
@@ -79,13 +108,14 @@ class Crane:
         }
         self.drivetrains = {
             'x': 50,
-            'y': 10.75 * PI,
-            'z': 7.35 * PI / 2,  # div by 2 due to rope configuration un U-shape
+            'y': 10.75 * math.pi,
+            'z': 7.35 * math.pi / 2,  # divide by 2 due to rope configuration in U-shape
         }
 
         self.pos: list = list(start_pos)
 
-    def move_pos(self, pos: tuple):
+    def move_pos(self, pos: tuple) -> None:
+        """Takes a 3d-position (x,y,z) and moves the measuring tip at that location."""
         for idx, (mot, drivetrain) in enumerate(zip(self.mot.values(), self.drivetrains.values())):
             # calculate distance
             distance = pos[idx] - self.pos[idx]
@@ -96,22 +126,25 @@ class Crane:
             self.pos[idx] = pos[idx]
 
 
+def get_folder_name(directory: list, folder_convention: str = "session") -> str:
+    """Creates unique directory name."""
+    largest_num = 0
+    for d in directory:
+        d = d.replace(folder_convention, '')
+        if int(d) > largest_num:
+            largest_num = int(d)
+    return folder_convention + str(largest_num + 1)
+
+
 def main():
-    # gpio: [7,11,13,15],[12,16,18,22],[19,21,23,29]
-    # 5V Power: 2,4
-    # Ground: 6,9
+    """
+    GPIO-pins:     [7,11,13,15],[12,16,18,22],[19,21,23,29]
+    5V power:       2,4
+    Ground:         6,9
+    """
     GPIO.setmode(GPIO.BOARD)
 
-    # create unique directory name
-    def get_folder_name(directory: list, folder_convention: str = "session") -> str:
-        largest_num = 0
-        for d in directory:
-            d = d.replace(folder_convention, '')
-            if int(d) > largest_num:
-                largest_num = int(d)
-        return folder_convention + str(largest_num + 1)
-
-    # create directory with the name from above
+    # create directory
     path = "../sessions"
     if not os.path.isdir(path):
         os.mkdir(path)
@@ -124,10 +157,11 @@ def main():
     param_handler = ParameterHandler()
     data_handler = DataHandler()
     machine = Crane()
+    master = Master()
 
     # todo: implement new measuring method
 
-    # clean everything for next usage
+    # prepare GPIO pins for next usage
     GPIO.cleanup()
 
 

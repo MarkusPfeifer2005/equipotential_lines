@@ -4,7 +4,7 @@ import itertools
 
 
 class DCMotor:
-    """Enables control of a basic DC-motor. The motor must be connected to an H-bridge!"""
+    """Controls a basic DC-motor. The motor must be connected to an H-bridge!"""
     def __init__(self, gpio_pins: list[int]):
         self.gpio_pins = gpio_pins
 
@@ -24,9 +24,9 @@ class DCMotor:
         GPIO.output(self.gpio_pins[1], False)
 
 
-class StepperMotor:
-    """This class is supposed to control the 28BYJ-48 stepper motor."""
-    sequence = [
+class StepperMotor(DCMotor):
+    """Controls the 28BYJ-48 stepper motor."""
+    sequence: list = [
         [1, 0, 0, 0],
         [1, 1, 0, 0],
         [0, 1, 0, 0],
@@ -45,20 +45,17 @@ class StepperMotor:
     steps_per_rot: int = teeth_per_layer * teeth_layers * gear_reduction * 2
 
     def __init__(self, gpio_pins: list[int], reverse: bool = False):
+        super(StepperMotor, self).__init__(gpio_pins)
         self.seq = list(reversed(self.sequence)) if reverse else self.sequence  # predefining rotation direction
-
-        self.gpio_pins = gpio_pins
 
         self.pos: float = 0  # value between 0 and 360
         self.last_active_pins = self.seq[0]
 
-        # Setting modes for pins
-        for pin in self.gpio_pins:
-            GPIO.setup(pin, GPIO.OUT)
-
     def run_angle(self, angle: float, velocity: float = 1, hold: bool = False) -> None:
-        """Turns the motor a specific angle."""
-        # set position
+        """
+        Turns the motor a specific angle. Since only a certain number of steps is possible it reaches to the
+        nearest position possible. The inaccuracies do not sum up!
+        """
         self.set_pos(angle)
 
         # assembling the sequence
@@ -78,7 +75,7 @@ class StepperMotor:
                 self.last_active_pins = half_step
                 time.sleep(0.001 / velocity)
 
-                # end the loop if target HAS been reached
+                # end the loop if target has been reached
                 # get the closest step to desired position
                 #   360   :   4096
                 #   angle :   angle in steps
@@ -107,3 +104,6 @@ class StepperMotor:
             self.pos -= 360
         while self.pos < 0:
             self.pos += 360
+
+    def run(self, direction: bool, duration: float) -> None:
+        pass

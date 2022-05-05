@@ -1,5 +1,5 @@
 import unittest
-from build import __main__
+from build import main
 
 
 # class TestDigitSorter(unittest.TestCase):
