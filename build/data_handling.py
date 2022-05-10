@@ -387,6 +387,7 @@ class Session(Directory):
                 yield MyImage(os.path.join(self.path, file_name))
 
     def add_image(self, img: np.ndarray, pos: tuple) -> MyImage:
+        """Adds the image to the session folder and updates the position value in the json file."""
         img_name = str(pos).replace('(', '').replace(')', '').replace(' ', '') + self.image_ext
         img_path = os.path.join(self.path, img_name)
         cv2.imwrite(filename=img_path, img=img)
@@ -454,24 +455,16 @@ class Session(Directory):
 
 
 def main() -> None:
-    # step 1 - fill session folder with images via the machine
-    # active_session = Session()  # new empty session is created!
-    # if len(active_session.json) == 0:
-    #     active_session.json["area_to_map"] = (255, 150, 10)
-    #     active_session.json["step_size"] = (5, 5, 10)
-    #     active_session.json["last_pos"] = (0, 0, 0)
-    #     active_session.json["voltage"] = ''
-    #     active_session.json["electrode_type"] = ''
-    #     active_session.json["liquid"] = ''
+    active_session = Session()  # new empty session is created!
 
     # step 2 - complete the csv file with the help of the neural net
-    # model = torch.load(r"models/lcd_cnn_20.pt")
-    # model.to(device="cpu")
-    #
-    # active_session.fill_csv(model=model)
+    model = torch.load(r"models/lcd_cnn_20.pt")
+    model.to(device="cpu")
+
+    active_session.fill_csv(model=model)
 
     # step 3 - provide new data for neural net
-    # active_session.prepare_for_ml()
+    active_session.prepare_for_ml()
 
     # step 4 (optional) - train neural net with the new data
     pass

@@ -1,85 +1,10 @@
-import json
-import csv
-import os
 import math
+import numpy as np
 import serial
+import cv2
 from RPi import GPIO as GPIO
 from build.motors import StepperMotor
-
-
-class BasicHandler:
-    """Abstract Class for custom file handlers."""
-    def __init__(self, path):
-        self.path = path
-
-    def __getnewargs__(self):
-        pass
-
-    def __setitem__(self, key, value):
-        pass
-
-    def __getitem__(self, item):
-        pass
-
-
-class ParameterHandler(BasicHandler):
-    """Ths class organizes the parameters and saves them in a .json file."""
-    default_parameters = {
-        "area_to_map": (255, 150, 10),
-        "step_size": (5, 5, 10),
-        "last_pos": (0, 0, 0),
-        "session_name": os.getcwd().split('\\')[-1],  # FIXME: /home/pi/Desktop/equipotential_lines/hardware_control
-        "voltage": '',
-        "electrode_type": '',
-        "liquid": '',
-    }
-
-    def __init__(self, path: str = "parameters.json"):
-        super().__init__(path)
-
-    def get_parameters(self) -> dict:
-        try:
-            with open(self.path) as file:
-                try:
-                    parameters = json.load(file)
-                except json.decoder.JSONDecodeError:  # if file is empty
-                    return self.default_parameters
-                return parameters
-        except FileNotFoundError:
-            return self.default_parameters
-
-    def set_parameters(self, **kwargs) -> None:
-        # get parameters
-        parameters = self.get_parameters()
-
-        # alter parameters
-        for key, value in kwargs.items():
-            parameters[key] = value
-
-        # save parameters
-        self.save_parameters(parameters=parameters)
-
-    def save_parameters(self, parameters):
-        """Overrides old version with new parameters."""
-        with open(self.path, 'w') as file:
-            json.dump(parameters, file)
-
-
-class DataHandler(BasicHandler):
-    delimiter: str = ','
-
-    def __init__(self, path: str = "data.csv"):
-        super().__init__(path)
-
-    def append(self, entry: list) -> None:
-        with open(self.path, mode='a') as csv_file:
-            csv_writer = csv.writer(csv_file, delimiter=self.delimiter)
-            csv_writer.writerow(entry)
-
-    def get_values(self) -> list:
-        """Extract values from csv file and returns them in the form of a list."""
-        with open(self.path, mode='r') as csv_file:
-            return list(csv.reader(csv_file))
+from data_handling import Session
 
 
 class Master:
@@ -115,7 +40,7 @@ class Crane:
         self.pos: list = list(start_pos)
 
     def move_pos(self, pos: tuple) -> None:
-        """Takes a 3d-position (x,y,z) and moves the measuring tip at that location."""
+        """Takes a 3d-position (x,y,z) and moves the measuring tip to that location."""
         for idx, (mot, drivetrain) in enumerate(zip(self.mot.values(), self.drivetrains.values())):
             # calculate distance
             distance = pos[idx] - self.pos[idx]
@@ -126,14 +51,14 @@ class Crane:
             self.pos[idx] = pos[idx]
 
 
-def get_folder_name(directory: list, folder_convention: str = "session") -> str:
-    """Creates unique directory name."""
-    largest_num = 0
-    for d in directory:
-        d = d.replace(folder_convention, '')
-        if int(d) > largest_num:
-            largest_num = int(d)
-    return folder_convention + str(largest_num + 1)
+class Camera:
+    def __init__(self):
+        self.cam = cv2.VideoCapture(0)
+
+    def take_picture(self) -> np.ndarray:
+        _, image = self.cam.read()
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        return image
 
 
 def main():
@@ -144,22 +69,24 @@ def main():
     """
     GPIO.setmode(GPIO.BOARD)
 
-    # create directory
-    path = "../sessions"
-    if not os.path.isdir(path):
-        os.mkdir(path)
-    directory = os.listdir(path)
-    path = os.path.join(path, get_folder_name(directory))
-    os.mkdir(path)
-    os.chdir(path)
-
-    # data, parameters & machine
-    param_handler = ParameterHandler()
-    data_handler = DataHandler()
+    # define
     machine = Crane()
-    master = Master()
+    camera = Camera()
+    active_session = Session(path_to_dir="PATH TO DESKTOP")
 
-    # todo: implement new measuring method
+    active_session.json["area_to_map"] = (255, 150, 10)
+    active_session.json["step_size"] = (5, 5, 10)
+    active_session.json["last_pos"] = (0, 0, 0)
+    active_session.json["voltage"] = ''
+    active_session.json["electrode_type"] = ''
+    active_session.json["liquid"] = ''
+
+    # measuring takes place from the bottom of the container to the liquid surface
+    for z in range(0, active_session.json["area_to_map"][2], active_session.json["step_size"][2]):
+        for x in range(0, active_session.json["area_to_map"][0], active_session.json["step_size"][0]):
+            for y in range(0, active_session.json["area_to_map"][1], active_session.json["step_size"][1]):
+                machine.move_pos((x, y, z))
+                active_session.add_image(img=camera.take_picture(), pos=(x, y, z))
 
     # prepare GPIO pins for next usage
     GPIO.cleanup()
