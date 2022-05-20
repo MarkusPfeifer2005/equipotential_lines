@@ -60,12 +60,3 @@ class Slave:
         while True:
             if self.uart.any():
                 return self.uart.read().decode()
-
-
-def main() -> None:
-    voltmeter = Voltmeter()
-    client = Slave()
-
-
-if __name__ == "__main__":
-    main()

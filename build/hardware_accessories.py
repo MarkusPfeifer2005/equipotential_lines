@@ -25,7 +25,12 @@ class DCMotor:
 
 
 class StepperMotor(DCMotor):
-    """Controls the 28BYJ-48 stepper motor."""
+    """
+    Controls the 28BYJ-48 stepper motor.
+    Attention: there is a slight error in the positioning system, that causes errors while positioning. I assume these
+    errors originate from the round function, that is responsible for some minimal inaccuracies, that only show up
+    when travelling longer distances!
+    """
     sequence: list = [
         [1, 0, 0, 0],
         [1, 1, 0, 0],
@@ -48,40 +53,31 @@ class StepperMotor(DCMotor):
         super(StepperMotor, self).__init__(gpio_pins)
         self.seq = list(reversed(self.sequence)) if reverse else self.sequence  # predefining rotation direction
 
-        self.pos: float = 0  # value between 0 and 360
+        self._pos: int = 0  # value between 0 and 360
         self.last_active_pins = self.seq[0]
 
-    def run_angle(self, angle: float, velocity: float = 1, hold: bool = False) -> None:
-        """
-        Turns the motor a specific angle. Since only a certain number of steps is possible it reaches to the
-        nearest position possible. The inaccuracies do not sum up!
-        """
-        self.set_pos(angle)
-
+    def _run_steps(self, steps: int, velocity: float = 1, hold: bool = False) -> None:
+        """Turns the motor a given amount of steps."""
+        # set position
+        self._pos = (self._pos + steps) % self.steps_per_rot
         # assembling the sequence
         seq = self.seq[self.seq.index(self.last_active_pins):]
         for i in self.seq[:self.seq.index(self.last_active_pins)]:
             seq.append(i)
         # determine the direction the motor is spinning
-        if angle < 0:
+        if steps < 0:
             seq.reverse()
-
         # rotate the motor
         try:
-            for idx, half_step in enumerate(itertools.cycle(seq)):
+            for idx, step in enumerate(itertools.cycle(seq)):
                 # activate/deactivate pins
-                for pin, high_low in zip(self.gpio_pins, half_step):
+                for pin, high_low in zip(self.gpio_pins, step):
                     GPIO.output(pin, high_low)
-                self.last_active_pins = half_step
+                self.last_active_pins = step
                 time.sleep(0.001 / velocity)
 
                 # end the loop if target has been reached
-                # get the closest step to desired position
-                #   360   :   4096
-                #   angle :   angle in steps
-                angle_in_steps = round(self.steps_per_rot * abs(angle) / 360)
-
-                if idx == angle_in_steps:
+                if idx == abs(steps):
                     break
 
             # deactivate coils (essential to counter overheating)
@@ -91,19 +87,50 @@ class StepperMotor(DCMotor):
         except KeyboardInterrupt:  # prevents motor from overheating if process is interrupted
             GPIO.cleanup()
 
+    def run_angle(self, angle: float, velocity: float = 1, hold: bool = False) -> float:
+        """
+        Turns the motor a specific angle. Since only a certain number of steps is possible it reaches to the
+        nearest position possible. The inaccuracies do not sum up!
+        """
+        steps: int = round(self.steps_per_rot * angle / 360)
+        self._run_steps(steps=steps, velocity=velocity, hold=hold)
+        return steps / self.steps_per_rot * 360
+
     def run_pos(self, pos: int, velocity: float = 1, hold: bool = False) -> None:
-        """Runs the motor to a given position."""
+        """
+        Runs the motor to a given position. The velocity is set via a growth-factor (1 is the full speed).
+        If hold is false, the motor is allowed to spin freely.
+        """
         angle = pos - self.pos
         self.run_angle(angle=angle, velocity=velocity, hold=hold)
 
-    def set_pos(self, angle: float) -> None:
-        """Sets the position the motor is at."""
-        self.pos += angle
-
-        while self.pos > 360:
-            self.pos -= 360
-        while self.pos < 0:
-            self.pos += 360
+    @property
+    def pos(self):
+        """Returns the degree equivalent to the real position."""
+        return self._pos / self.steps_per_rot * 360
 
     def run(self, direction: bool, duration: float) -> None:
+        """Not implemented yet."""
         pass
+
+
+class PushButton:
+    """The function is put into a wrapper method an is only executed if the button is activated."""
+    def __init__(self, pin: int, function, is_active: bool = False):
+        self.function = function
+        self._is_active = is_active
+        GPIO.setup(pin, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
+        GPIO.add_event_detect(pin, GPIO.RISING, callback=self.task)
+
+    def task(self):
+        if self._is_active:
+            self.function()
+
+    def activate(self):
+        self._is_active = True
+
+    def deactivate(self):
+        self._is_active = False
+
+    def toggle(self):
+        self._is_active = False if self._is_active else True

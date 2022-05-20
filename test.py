@@ -5,8 +5,8 @@ import cv2
 import shutil
 import numpy as np
 import torch
-from build.data_handling import File, MyImage, JSON, CSV, Directory, Session, Sandbox
-from build.data_handling import MyCNN
+from build.data_accessories import File, MyImage, JSON, CSV, Directory, get_desktop
+from build.win_only import MyCNN, Session, Sandbox
 
 
 class TestFile(unittest.TestCase):
@@ -186,7 +186,7 @@ class TestSession(unittest.TestCase):
     def setUp(self) -> None:
         os.mkdir("test_files/container")
         shutil.copytree("test_files/session3", "test_files/container/session3")
-        self.session = Session(path_to_dir="test_files/container/session3")
+        self.session1 = Session(path_to_dir="test_files/container/session3")
 
     def tearDown(self) -> None:
         try:
@@ -203,11 +203,8 @@ class TestSession(unittest.TestCase):
     def test_get_new_session_name(self):
         self.assertEqual(Session.get_new_session_name("test_files"), "session4")
 
-    def test_get_desktop(self):
-        self.assertEqual(Session.get_desktop(), "D:\OneDrive - brg14.at\Desktop")
-
     def test_get_images(self):
-        """Attention the order of the images could be fatal to the test."""
+        """Attention: the order of the images could be fatal to the test."""
         img_names = [
             "0,0,0.jpg",
             "0,10,0.jpg",
@@ -220,24 +217,24 @@ class TestSession(unittest.TestCase):
             "0,45,0.jpg",
             "0,5,0.jpg"
         ]
-        for i, name in zip(self.session.get_images(), img_names):
+        for i, name in zip(self.session1.get_images(), img_names):
             self.assertIsInstance(i, MyImage)
             self.assertEqual(i.name, name)
 
-        self.assertEqual(len(list(self.session.get_images())), len(img_names))
+        self.assertEqual(len(list(self.session1.get_images())), len(img_names))
 
     def test_add_image(self):
         image = cv2.imread("test_files/session3/0,25,0.jpg")
-        self.session.add_image(img=image, pos=(0, 50, 0))
+        self.session1.add_image(img=image, pos=(0, 50, 0))
         self.assertEqual(os.path.isfile("test_files/container/session3/0,50,0.jpg"), True)
 
     def test_del_image(self):
         # variant 1:
-        self.session.del_image(img_name="0,15,0.jpg")
+        self.session1.del_image(img_name="0,15,0.jpg")
         self.assertEqual(os.path.isfile("test_files/container/session3/0,15,0.jpg"), False)
         # variant 2:
         img = MyImage("test_files/container/session3/0,20,0.jpg")
-        self.session.del_image(img)
+        self.session1.del_image(img)
         self.assertEqual(os.path.isfile("test_files/container/session3/0,20,0.jpg"), False)
 
     def test_prepare_for_ml(self):
@@ -258,12 +255,12 @@ class TestSession(unittest.TestCase):
             ('test_files/container/ml_session3\\8', [], []),
             ('test_files/container/ml_session3\\9', [], [])
         ]
-        self.session.prepare_for_ml(target_dir="test_files/container", img_idx=0)
+        self.session1.prepare_for_ml(target_dir="test_files/container", img_idx=0)
         self.assertEqual(list(os.walk("test_files/container/ml_session3")), result)
 
     def test_MLPreparation(self):
         """Requires further improvement because it only checks if the result is a torch.Tensor."""
-        preparation = self.session.MLPreparation()
+        preparation = self.session1.MLPreparation()
         img = MyImage("test_files/container/session3/0,40,0.jpg")
 
         for i in preparation(img):
@@ -276,25 +273,44 @@ class TestSession(unittest.TestCase):
             writer.writerows([])
 
         # fill csv
-        model = torch.load("test_files/test_cnn.pt")
+        model = MyCNN()
         model.to("cpu")
-        self.session.fill_csv(model=model)
+        self.session1.fill_csv(model=model)
 
         # check if filled (values may be incorrect)
-        self.assertEqual(len(self.session.csv), 10)
+        self.assertEqual(len(self.session1.csv), 10)
 
 
 class TestSandbox(unittest.TestCase):
     def setUp(self) -> None:
-        model = torch.load("test_files/test_cnn.pt")
-        self.sandbox = Sandbox(model=model)
+        model = MyCNN()
+        self.sandbox = Sandbox(model=model, epochs=1)
 
     def tearDown(self) -> None:
-        pass
+        try:
+            os.remove("test_files/lcd_cnn_1.pt")
+        except FileNotFoundError:
+            pass
 
     def test_get_loader(self):
         """Already gets tested in the setUp method."""
         pass
+
+    def test_train(self):
+        self.sandbox.train()
+
+    def test_evaluate(self):
+        self.sandbox.evaluate()
+
+    def test_save_model(self):
+        self.sandbox.save_model(path="test_files")
+        self.assertEqual(os.path.isfile("test_files/lcd_cnn_1.pt"), True)
+
+
+class TestGetDesktop(unittest.TestCase):
+    """Only tests for windows"""
+    def test_get_desktop(self):
+        self.assertEqual(get_desktop(), "D:\OneDrive - brg14.at\Desktop")
 
 
 if __name__ == "__main__":
