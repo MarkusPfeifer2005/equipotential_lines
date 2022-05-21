@@ -2,9 +2,8 @@ import math
 import numpy as np
 import serial
 import cv2
-from functools import partial
 from RPi import GPIO as GPIO
-from hardware_accessories import StepperMotor
+from hardware_accessories import StepperMotor, PushButton
 from data_accessories import RpiSession
 
 
@@ -24,7 +23,7 @@ class Master:
         return self.ser.read_until().decode()
 
 
-class Crane:
+class Machine:
     """Class to control the crane-like machine. The machine must be manually moved into its starting position."""
     def __init__(self, start_pos: tuple = (0, 0, 0)):
         self.mot = {
@@ -37,8 +36,16 @@ class Crane:
             'y': 51,  # measured value
             'z': 7.35 * math.pi / 2,  # divide by 2 due to rope configuration in U-shape
         }
-
+        self.p_button = PushButton(pin=37, function=self.mot['x'].stop)
         self.pos: list = list(start_pos)
+
+    def zero_x(self):
+        """Runs the motor x until it hits the push button. The x pos is then set to 0."""
+
+        self.p_button.activate()
+        self.mot['x'].run(reverse=True)
+        self.p_button.deactivate()
+        self.pos[0] = 0
 
     def move_pos(self, pos: tuple) -> None:
         """Takes a 3d-position (x,y,z) and moves the measuring tip to that location."""
@@ -69,7 +76,7 @@ def main():
     GPIO.setmode(GPIO.BOARD)
 
     # define
-    machine = Crane()
+    machine = Machine()
     camera = Camera()
     active_session = RpiSession()
 
@@ -84,28 +91,14 @@ def main():
         active_session.json["liquid_debt"] = 32
         active_session.json["liquid_temp"] = 18
 
-    # start_pos_unchanged = active_session.json["last_pos"]  # fixme start not used!
-    # for z in range(0, active_session.json["area_to_map"][2], active_session.json["step_size"][2]):
-    #     for i, y in enumerate(range(0, active_session.json["area_to_map"][1], active_session.json["step_size"][1])):
-    #
-    #         if i % 2 == 0:
-    #             for x in range(0, active_session.json["area_to_map"][0], active_session.json["step_size"][0]):
-    #                 machine.move_pos((x, y, z))
-    #                 active_session.add_image(img=camera.take_picture(), pos=(x, y, z))
-    #             machine.mot['x'].run_angle(angle=0.6 / machine.drivetrains['x'])
-    #         else:
-    #             for x in range(active_session.json["area_to_map"][0]-active_session.json["step_size"][0],
-    #                            0-active_session.json["step_size"][0],
-    #                            active_session.json["step_size"][0]*(-1)):
-    #                 machine.move_pos((x, y, z))
-    #                 active_session.add_image(img=camera.take_picture(), pos=(x, y, z))
-
+    machine.zero_x()
     for z in range(0, active_session.json["area_to_map"][2], active_session.json["step_size"][2]):
-        for i, y in enumerate(range(0, active_session.json["area_to_map"][1], active_session.json["step_size"][1])):
+        for y in range(0, active_session.json["area_to_map"][1], active_session.json["step_size"][1]):
             for x in range(0, active_session.json["area_to_map"][0], active_session.json["step_size"][0]):
                 machine.move_pos((x, y, z))
                 active_session.add_image(img=camera.take_picture(), pos=(x, y, z))
-            machine.mot['x'].run_angle(angle=0.2 / machine.drivetrains['x'])
+            machine.zero_x()
+    machine.move_pos((10, 0, 0))
 
     # prepare GPIO pins for next usage
     GPIO.cleanup()

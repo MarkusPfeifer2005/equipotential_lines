@@ -55,6 +55,7 @@ class StepperMotor(DCMotor):
 
         self._pos: int = 0  # value between 0 and 360
         self.last_active_pins = self.seq[0]
+        self.is_running = False
 
     def _run_steps(self, steps: int, velocity: float = 1, hold: bool = False) -> None:
         """Turns the motor a given amount of steps."""
@@ -80,12 +81,13 @@ class StepperMotor(DCMotor):
                 if idx == abs(steps):
                     break
 
+        except KeyboardInterrupt:  # prevents motor from overheating if process is interrupted
+            GPIO.cleanup()
+        finally:
             # deactivate coils (essential to counter overheating)
             if not hold:
                 for pin in self.gpio_pins:
                     GPIO.output(pin, 0)
-        except KeyboardInterrupt:  # prevents motor from overheating if process is interrupted
-            GPIO.cleanup()
 
     def run_angle(self, angle: float, velocity: float = 1, hold: bool = False) -> float:
         """
@@ -109,28 +111,55 @@ class StepperMotor(DCMotor):
         """Returns the degree equivalent to the real position."""
         return self._pos / self.steps_per_rot * 360
 
-    def run(self, direction: bool, duration: float) -> None:
+    def run(self, reverse: bool, velocity: float = 1) -> None:
         """Not implemented yet."""
-        pass
+        # assembling the sequence
+        seq = self.seq[self.seq.index(self.last_active_pins):]
+        for i in self.seq[:self.seq.index(self.last_active_pins)]:
+            seq.append(i)
+        # determine the direction the motor is spinning
+        if reverse:
+            seq.reverse()
+        # rotate the motor
+        self.is_running = True
+        try:
+            for idx, step in enumerate(itertools.cycle(seq)):
+                # activate/deactivate pins
+                for pin, high_low in zip(self.gpio_pins, step):
+                    GPIO.output(pin, high_low)
+                self.last_active_pins = step
+                time.sleep(0.001 / velocity)
+
+                # end the loop if requested
+                if not self.is_running:
+                    break
+
+        except KeyboardInterrupt:  # prevents motor from overheating if process is interrupted
+            GPIO.cleanup()
+        finally:
+            # deactivate coils (essential to counter overheating)
+            for pin in self.gpio_pins:
+                GPIO.output(pin, 0)
+
+    def stop(self):
+        self.is_running = False
 
 
 class PushButton:
-    """The function is put into a wrapper method an is only executed if the button is activated."""
+    """The Push button possesses a function that is called whenever the button is pushed (and released?)."""
+
     def __init__(self, pin: int, function, is_active: bool = False):
         self.function = function
-        self._is_active = is_active
-        GPIO.setup(pin, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
-        GPIO.add_event_detect(pin, GPIO.RISING, callback=self.task)
+        self.pin = pin
+        GPIO.setup(self.pin, GPIO.IN, pull_up_down=GPIO.PUD_DOWN)
+        if is_active:
+            self.activate()
 
-    def task(self):
-        if self._is_active:
-            self.function()
+    def task(self, channel):  # channel is necessary because something is passed in
+        self.function()
 
     def activate(self):
-        self._is_active = True
+        GPIO.add_event_detect(self.pin, GPIO.RISING, callback=self.task)
 
     def deactivate(self):
-        self._is_active = False
-
-    def toggle(self):
-        self._is_active = False if self._is_active else True
+        GPIO.remove_event_detect(self.pin)
