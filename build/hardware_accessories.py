@@ -27,9 +27,8 @@ class DCMotor:
 class StepperMotor(DCMotor):
     """
     Controls the 28BYJ-48 stepper motor.
-    Attention: there is a slight error in the positioning system, that causes errors while positioning. I assume these
-    errors originate from the round function, that is responsible for some minimal inaccuracies, that only show up
-    when travelling longer distances!
+    Attention: Since a stepper motor can only move steps it can not get the exact position. But past errors are
+    compensated for the next move, so they do not sum up. The error in positioning is 1 step at maximum.
     """
     sequence: list = [
         [1, 0, 0, 0],
@@ -53,9 +52,9 @@ class StepperMotor(DCMotor):
         super(StepperMotor, self).__init__(gpio_pins)
         self.seq = list(reversed(self.sequence)) if reverse else self.sequence  # predefining rotation direction
 
-        self._pos: int = 0  # value between 0 and 360
+        self._pos: int = 0  # given in steps
         self.last_active_pins = self.seq[0]
-        self.is_running = False
+        self.is_running = False  # only used for the run-method
 
     def _run_steps(self, steps: int, velocity: float = 1, hold: bool = False) -> None:
         """Turns the motor a given amount of steps."""
@@ -94,9 +93,9 @@ class StepperMotor(DCMotor):
         Turns the motor a specific angle. Since only a certain number of steps is possible it reaches to the
         nearest position possible. The inaccuracies do not sum up!
         """
-        steps: int = round(self.steps_per_rot * angle / 360)
-        self._run_steps(steps=steps, velocity=velocity, hold=hold)
-        return steps / self.steps_per_rot * 360
+        steps: int = round(self.steps_per_rot * angle / 360)  # calculate the required steps
+        self._run_steps(steps=steps, velocity=velocity, hold=hold)  # rotate the motor for the calculated steps
+        return steps / self.steps_per_rot * 360  # returns the actual - not the desired position in degrees
 
     def run_pos(self, pos: int, velocity: float = 1, hold: bool = False) -> None:
         """

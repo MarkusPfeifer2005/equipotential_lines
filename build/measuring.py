@@ -41,7 +41,6 @@ class Machine:
 
     def zero_x(self):
         """Runs the motor x until it hits the push button. The x pos is then set to 0."""
-
         self.p_button.activate()
         self.mot['x'].run(reverse=True)
         self.p_button.deactivate()
@@ -50,11 +49,9 @@ class Machine:
     def move_pos(self, pos: tuple) -> None:
         """Takes a 3d-position (x,y,z) and moves the measuring tip to that location."""
         for idx, (mot, drivetrain) in enumerate(zip(self.mot.values(), self.drivetrains.values())):
-            # calculate distance
-            distance = pos[idx] - self.pos[idx]
-            required_rotations = distance / drivetrain
-            # set pos & run
-            self.pos[idx] = mot.run_angle(required_rotations*360) / 360 * drivetrain + self.pos[idx]
+            distance = pos[idx] - self.pos[idx]  # calculate distance
+            required_rotations = distance / drivetrain  # calculate required rotations of the motor in deg
+            self.pos[idx] = mot.run_angle(required_rotations*360) / 360 * drivetrain + self.pos[idx]  # set pos & run
 
 
 class Camera:
