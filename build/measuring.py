@@ -68,11 +68,6 @@ class Camera:
 
 
 def main():
-    """
-    GPIO-pins:     [7,11,13,15],[12,16,18,22],[19,21,23,29]
-    5V power:       2,4
-    Ground:         6,9
-    """
     GPIO.setmode(GPIO.BOARD)
 
     # define
@@ -91,6 +86,7 @@ def main():
         active_session.json["liquid_debt"] = 32
         active_session.json["liquid_temp"] = 18
 
+    machine.mot['x'].run_angle(angle=180, velocity=.5)  # get the motor away from push button
     machine.zero_x()
     for z in range(0, active_session.json["area_to_map"][2], active_session.json["step_size"][2]):
         for y in range(0, active_session.json["area_to_map"][1], active_session.json["step_size"][1]):
@@ -98,10 +94,8 @@ def main():
                 machine.move_pos((x, y, z))
                 active_session.add_image(img=camera.take_picture(), pos=(x, y, z))
             machine.zero_x()
-    machine.move_pos((10, 0, 0))
 
-    # prepare GPIO pins for next usage
-    GPIO.cleanup()
+    GPIO.cleanup()  # prepare GPIO pins for next usage
 
 
 if __name__ == "__main__":
