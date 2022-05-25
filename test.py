@@ -6,7 +6,8 @@ import shutil
 import numpy as np
 import torch
 from build.data_accessories import File, MyImage, JSON, CSV, Directory, get_desktop
-from build.win_only import MyCNN, Session, Sandbox
+from build.win_only import Session
+from build.computervision import MyCNN, MyLoader, train, evaluate
 
 
 class TestFile(unittest.TestCase):
@@ -258,12 +259,11 @@ class TestSession(unittest.TestCase):
         self.session1.prepare_for_ml(target_dir="test_files/container", img_idx=0)
         self.assertEqual(list(os.walk("test_files/container/ml_session3")), result)
 
-    def test_MLPreparation(self):
+    def test__split_and_tensor(self):
         """Requires further improvement because it only checks if the result is a torch.Tensor."""
-        preparation = self.session1.MLPreparation()
         img = MyImage("test_files/container/session3/0,40,0.jpg")
 
-        for i in preparation(img):
+        for i in self.session1._split_and_tensor(img):
             self.assertIsInstance(i, torch.Tensor)
 
     def test_fill_csv(self):
@@ -281,10 +281,9 @@ class TestSession(unittest.TestCase):
         self.assertEqual(len(self.session1.csv), 10)
 
 
-class TestSandbox(unittest.TestCase):
+class TestMyCNN(unittest.TestCase):
     def setUp(self) -> None:
-        model = MyCNN()
-        self.sandbox = Sandbox(model=model, epochs=1)
+        self.model = MyCNN()
 
     def tearDown(self) -> None:
         try:
@@ -292,25 +291,15 @@ class TestSandbox(unittest.TestCase):
         except FileNotFoundError:
             pass
 
-    def test_get_loader(self):
-        """Already gets tested in the setUp method."""
-        pass
-
-    def test_train(self):
-        self.sandbox.train()
-
-    def test_evaluate(self):
-        self.sandbox.evaluate()
-
-    def test_save_model(self):
-        self.sandbox.save_model(path="test_files")
+    def test_save(self):
+        self.model.save(name="1", path="test_files")
         self.assertEqual(os.path.isfile("test_files/lcd_cnn_1.pt"), True)
 
 
 class TestGetDesktop(unittest.TestCase):
     """Only tests for windows"""
     def test_get_desktop(self):
-        self.assertEqual(get_desktop(), "D:\OneDrive - brg14.at\Desktop")
+        self.assertEqual(get_desktop(), r"D:\OneDrive - brg14.at\Desktop")
 
 
 if __name__ == "__main__":

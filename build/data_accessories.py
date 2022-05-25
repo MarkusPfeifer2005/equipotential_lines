@@ -221,19 +221,11 @@ class RpiSession(Directory):
     @staticmethod
     def get_new_session_name(path: str, folder_convention: str = "session") -> str:
         """Creates unique directory name like: 'session4'."""
-        largest_num = 0
-        for directory in os.listdir(path):
-            if folder_convention in directory:
-                directory = directory.replace(folder_convention, '')
-                if int(directory) > largest_num:
-                    largest_num = int(directory)
+        largest_num = max((int(f.replace(folder_convention, '')) for f in os.listdir(path) if folder_convention in f))
         return folder_convention + str(largest_num + 1)
 
     def get_images(self):
-        """
-        This generator yields all image files in the session.
-        The files get passed on in the custom MyImage format.
-        """
+        """This generator yields all image files in the session as MyImage."""
         for file_name in os.listdir(path=self.path):
             if self.image_ext in file_name:
                 yield MyImage(os.path.join(self.path, file_name))
@@ -254,7 +246,7 @@ class RpiSession(Directory):
         """
 
         if img:
-            if os.path.split(img.path)[0] == self.path:  # Can't be chained with "and" because img could be None!
+            if os.path.split(img.path)[0] == self.path:  # Can not be chained with "and" because img could be None!
                 img.delete()
         elif img_name:
             os.remove(os.path.join(self.path, img_name))
