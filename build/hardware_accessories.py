@@ -1,6 +1,8 @@
 from RPi import GPIO as GPIO
 import time
 import itertools
+import cv2
+import numpy as np
 
 
 class DCMotor:
@@ -12,7 +14,7 @@ class DCMotor:
         for pin in self.gpio_pins:
             GPIO.setup(pin, GPIO.OUT)
 
-    def run(self, direction: bool, duration: float) -> None:
+    def run(self, direction: bool, duration: float):
         """Runs the motor for a given duration in the specified direction."""
         GPIO.output(self.gpio_pins[0], direction)
         GPIO.output(self.gpio_pins[1], not direction)
@@ -56,7 +58,7 @@ class StepperMotor(DCMotor):
         self.last_active_pins = self.seq[0]
         self.is_running = False  # only used for the run-method
 
-    def _run_steps(self, steps: int, velocity: float = 1, hold: bool = False) -> None:
+    def _run_steps(self, steps: int, velocity: float = 1, hold: bool = False):
         """Turns the motor a given amount of steps."""
         # set position
         self._pos = (self._pos + steps) % self.steps_per_rot
@@ -97,7 +99,7 @@ class StepperMotor(DCMotor):
         self._run_steps(steps=steps, velocity=velocity, hold=hold)  # rotate the motor for the calculated steps
         return steps / self.steps_per_rot * 360  # returns the actual - not the desired position in degrees
 
-    def run_pos(self, pos: int, velocity: float = 1, hold: bool = False) -> None:
+    def run_pos(self, pos: int, velocity: float = 1, hold: bool = False):
         """
         Runs the motor to a given position. The velocity is set via a growth-factor (1 is the full speed).
         If hold is false, the motor is allowed to spin freely.
@@ -106,11 +108,16 @@ class StepperMotor(DCMotor):
         self.run_angle(angle=angle, velocity=velocity, hold=hold)
 
     @property
-    def pos(self):
+    def pos(self) -> float:
         """Returns the degree equivalent to the real position."""
         return self._pos / self.steps_per_rot * 360
 
-    def run(self, reverse: bool, velocity: float = 1) -> None:
+    @pos.setter
+    def pos(self, new_angle: float):
+        """Takes the new angel in degrees and calculates the closest position/step to the new angle."""
+        self._pos = round(self.steps_per_rot * new_angle / 360)  # todo: test if works!
+
+    def run(self, reverse: bool, velocity: float = 1):
         """Not implemented yet."""
         # assembling the sequence
         seq = self.seq[self.seq.index(self.last_active_pins):]
@@ -162,3 +169,13 @@ class PushButton:
 
     def deactivate(self):
         GPIO.remove_event_detect(self.pin)
+
+
+class Camera:
+    def __init__(self):
+        self.cam = cv2.VideoCapture(0)
+
+    def take_picture(self) -> np.ndarray:
+        _, image = self.cam.read()
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        return image

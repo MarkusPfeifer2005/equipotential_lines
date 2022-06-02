@@ -115,7 +115,6 @@ class CSV(File):
     A savable list.
     If it is used for the session data it would look like this: |x:int|y:int|z:int|v:float|.
     """
-    # todo: replace the open('r') open('w') with a single open() like open('r+) or open('w+)
 
     delimiter = ','
 
@@ -160,6 +159,14 @@ class CSV(File):
         with open(self.path, mode='w', newline='') as file:
             writer = csv.writer(file, delimiter=self.delimiter)
             writer.writerows(data)
+
+    def get_value(self, pos: list or tuple) -> float:
+        """Returns the corresponding value to the given position."""
+        with open(self.path, mode='r') as file:
+            for i in csv.reader(file):
+                if int(i[0]) == pos[0] and int(i[1]) == pos[1] and int(i[2]) == pos[2]:
+                    return float(i[3])
+        raise ValueError(f"Position '{pos}' does not exist!")
 
 
 class Directory:

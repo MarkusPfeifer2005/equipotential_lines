@@ -86,32 +86,14 @@ class Plot:
         self.plot()
 
     def prepare_data(self) -> np.array:
-        # # create grid filled with zeros
-        # data = np.array([
-        #     [[0 for x in range(0, self.session.json["area_to_map"][0], self.session.json["step_size"][0])]  # 0 -> value
-        #      for y in range(0, self.session.json["area_to_map"][1], self.session.json["step_size"][1])]
-        #     for z in range(0, self.session.json["area_to_map"][2], self.session.json["step_size"][2])
-        # ])
-        #
-        # # data[z][y][x]
-        # step = self.session.json["step_size"]
-        # for i in self.session.csv:
-        #     x, y, z, v = int(i[0])/step[0], int(i[1])/step[1], int(i[2])/step[2], float(i[3])
-        #     data[z][y][x] = v
-        #
-        # return data
+        x_max, y_max, z_max = self.session.json["area_to_map"]
+        x_stp, y_stp, z_stp = self.session.json["step_size"]
 
-        img_values = [[int(x), int(y), int(z), float(v)] for x, y, z, v in list(self.session.csv)]
         data = []
         for z in range(0, self.session.json["area_to_map"][2], self.session.json["step_size"][2]):
             plane = []
             for y in range(0, self.session.json["area_to_map"][1], self.session.json["step_size"][1]):
-                row = []
-                for x in range(0, self.session.json["area_to_map"][0], self.session.json["step_size"][0]):
-                    for i in img_values:
-                        ix, iy, iz, v = i
-                        if ix == x and iy == y and iz == z:
-                            row.append(v)
+                row = [self.session.csv.get_value(pos=(x, y, z)) for x in range(0, x_max, x_stp)]
                 plane.append(row)
             data.append(plane)
 
@@ -132,9 +114,12 @@ class HeatMap(Plot):
 
 def main() -> None:
     active_session = Session()
-    model = torch.load(r"../models/lcd_cnn_30.pt").to("cpu")
-    active_session.fill_csv(model=model)
-    active_session.prepare_for_ml()
+    # model = torch.load(r"../models/lcd_cnn_30.pt").to("cpu")
+    # active_session.fill_csv(model=model)
+    # active_session.prepare_for_ml()
+
+    p = HeatMap(session=active_session)
+    p.plot()
 
 
 if __name__ == "__main__":

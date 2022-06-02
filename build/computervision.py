@@ -44,8 +44,15 @@ class MyLoader(DataLoader):
     See: https://www.youtube.com/watch?v=4JFVhJyTZ44&list=PLhhyoLH6IjfxeoooqP9rhU3HJIAVAJ3Vz&index=13
     :return DataLoader:
     """
+
     def __init__(self, train_path: str, batch_size: int, device: torch.device):
-        my_transforms = transforms.ToTensor()
+        my_transforms = transforms.Compose([
+            transforms.ToTensor(),
+            transforms.RandomRotation(degrees=(-5, 5)),
+            transforms.RandomAdjustSharpness(sharpness_factor=2),
+            transforms.RandomAutocontrast()
+        ])
+
         dataset = ImageFolder(root=train_path, transform=my_transforms)
 
         class_weights = []
@@ -67,7 +74,7 @@ def train(model: nn.Module, num_epochs: int, train_loader: DataLoader, criterion
     """Trains the model. The model is put into training-mode."""
     model.train()
 
-    for epoch in tqdm(range(num_epochs)):
+    for _ in tqdm(range(num_epochs)):
         for batch_idx, (data, targets) in enumerate(train_loader):
             data, targets = data.to(device=device), targets.to(device=device)  # Get data to cuda if possible
 
@@ -101,13 +108,12 @@ def evaluate(model: nn.Module, test_loader: DataLoader, device: torch.device) ->
 
 
 def main() -> None:
-    epochs = 5
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     train_loader = MyLoader(device=device, train_path=r"D:\OneDrive - brg14.at\Desktop\train_data", batch_size=64)
     test_loader = MyLoader(device=device, train_path=r"D:\OneDrive - brg14.at\Desktop\test_data", batch_size=64)
 
-    for epoch in range(epochs):
-        print(f"===VV=== epoch {epoch} ===VV===")
+    for epoch in [5, 10]:
+        print(f"========= epochs: {epoch} =========")
 
         model = MyCNN().to(device)  # always creates a completely new model
         criterion = nn.CrossEntropyLoss()
@@ -115,9 +121,10 @@ def main() -> None:
 
         train(model=model, device=device, num_epochs=epoch, train_loader=train_loader,
               criterion=criterion, optimizer=optimizer)
+        evaluate(model=model, test_loader=train_loader, device=device)
         accuracy = evaluate(model=model, test_loader=test_loader, device=device)
-        # if accuracy > 95:
-        model.save(name=f"{epoch}_{int(accuracy)}")
+        if accuracy > 99:
+            model.save(name=f"{epoch}_{int(accuracy)}")
 
 
 if __name__ == "__main__":

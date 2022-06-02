@@ -1,10 +1,10 @@
-import math
-import numpy as np
+from math import pi
 import serial
-import cv2
+
 from RPi import GPIO as GPIO
-from hardware_accessories import StepperMotor, PushButton
-from data_accessories import RpiSession
+from hardware_accessories import StepperMotor, PushButton  # , Camera
+from data_accessories import RpiSession, JSON
+import ADS1x15
 
 
 class Master:
@@ -23,59 +23,90 @@ class Master:
         return self.ser.read_until().decode()
 
 
+class Actuator:
+    def __init__(self, mot_pins: list, mot_reverse: bool, gear_reduction: float, p_button_pin: int):
+        self.mot = StepperMotor(mot_pins, mot_reverse)
+        self.gear_reduction = gear_reduction
+        self.p_button = PushButton(p_button_pin, self.mot.stop)
+
+    def zero(self):
+        """Runs the motor until it hits the push button. The pos is then set to 0."""
+        self.p_button.activate()
+        self.mot.run(reverse=True)  # is always reverse (not motor dependant)
+        self.p_button.deactivate()
+        self.mot.pos = 0
+
+
 class Machine:
     """Class to control the crane-like machine. The machine must be manually moved into its starting position."""
-    def __init__(self, start_pos: tuple = (0, 0, 0)):
-        self.mot = {
-            'x': StepperMotor(gpio_pins=[7, 11, 13, 15], reverse=False),
-            'y': StepperMotor(gpio_pins=[12, 16, 18, 22], reverse=True),
-            'z': StepperMotor(gpio_pins=[19, 21, 23, 29], reverse=False),
+    def __init__(self, json: JSON):
+        self.actuator = {
+            'x': Actuator(mot_pins=[7, 11, 13, 15], mot_reverse=False, gear_reduction=17*pi, p_button_pin=38),
+            'y': Actuator(mot_pins=[12, 16, 18, 22], mot_reverse=True, gear_reduction=51, p_button_pin=40),
+            'z': Actuator(mot_pins=[19, 21, 23, 29], mot_reverse=False, gear_reduction=7.35*pi/2, p_button_pin=36)
         }
-        self.drivetrains = {
-            'x': 53.3,  # estimated value (calculated: 17pi)
-            'y': 51,  # measured value
-            'z': 7.35 * math.pi / 2,  # divide by 2 due to rope configuration in U-shape
-        }
-        self.p_button = PushButton(pin=37, function=self.mot['x'].stop)
-        self.pos: list = list(start_pos)
+        self.json = json
 
-    def zero_x(self):
-        """Runs the motor x until it hits the push button. The x pos is then set to 0."""
-        self.p_button.activate()
-        self.mot['x'].run(reverse=True)
-        self.p_button.deactivate()
-        self.pos[0] = 0
-
-    def move_pos(self, pos: tuple) -> None:
+    def move_pos(self, new_pos: tuple) -> None:
         """Takes a 3d-position (x,y,z) and moves the measuring tip to that location."""
-        for idx, (mot, drivetrain) in enumerate(zip(self.mot.values(), self.drivetrains.values())):
-            distance = pos[idx] - self.pos[idx]  # calculate distance
-            required_rotations = distance / drivetrain  # calculate required rotations of the motor in deg
-            self.pos[idx] = mot.run_angle(required_rotations*360) / 360 * drivetrain + self.pos[idx]  # set pos & run
+        for idx, actuator in enumerate(self.actuator.values()):
+            distance = new_pos[idx] - self.pos[idx]  # calculate distance
+            required_rotations = distance / actuator.gear_reduction  # calculate required rotations of the motor in deg
+            self.pos[idx] = actuator.mot.run_angle(required_rotations*360) / 360*actuator.gear_reduction + self.pos[idx]
 
+    def map(self, measuring_function, measuring_kwargs: dict) -> None:
+        """z axis is negative"""
+        self.actuator['x'].mot.run_angle(angle=180, velocity=.5)  # get the motor away from push button
+        self.actuator['x'].zero()
 
-class Camera:
-    def __init__(self):
-        self.cam = cv2.VideoCapture(0)
+        self.actuator['y'].mot.run_angle(angle=180, velocity=.5)
+        self.actuator['y'].zero()
 
-    def take_picture(self) -> np.ndarray:
-        _, image = self.cam.read()
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        return image
+        self.actuator['z'].mot.run_angle(angle=-180, velocity=.5)
+        self.actuator['z'].zero()
+
+        for z in range(0, self.json["area_to_map"][2], self.json["step_size"][2]):
+            for y in range(0, self.json["area_to_map"][1], self.json["step_size"][1]):
+                for x in range(0, self.json["area_to_map"][0], self.json["step_size"][0]):
+                    self.move_pos((x, y, z))
+                    measuring_function(pos=(x, y, z), **measuring_kwargs)
+                    self.pos = (x, y, z)
+                self.actuator['x'].zero()
+                self.pos = (0, self.pos[1], self.pos[2])  # the x pos must be set to 0
+            self.actuator['y'].zero()
+            self.pos = (self.pos[0], 0, self.pos[2])  # the y pos must be set to 0
+
+        self.move_pos((0, 0, 0))
+
+    @property
+    def pos(self) -> list:
+        """Shortens the access to the position parameter."""
+        return self.json["pos"]
+
+    @pos.setter
+    def pos(self, new_pos: list or tuple):
+        self.json["pos"] = new_pos
 
 
 def main():
     GPIO.setmode(GPIO.BOARD)
 
     # define
-    machine = Machine()
-    camera = Camera()
     active_session = RpiSession()
+    machine = Machine(json=active_session.json)
+    # camera = Camera()
+    adc = ADS1x15.ADS1115(1)
+
+    # def optical_measuring(pos):
+    #     active_session.add_image(img=camera.take_picture(), pos=pos)
+
+    def electrical_measuring(pos):
+        active_session.csv.append([pos[0], pos[1], pos[2], format(adc.toVoltage(adc.readADC(0)), ".2f")])
 
     if len(active_session.json) == 0:
-        active_session.json["area_to_map"] = (125, 225, 25)
-        active_session.json["step_size"] = (5, 5, 5)
-        active_session.json["last_pos"] = (0, 0, 0)
+        active_session.json["area_to_map"] = (125, 225, -25)
+        active_session.json["step_size"] = (5, 5, -5)
+        active_session.json["pos"] = (0, 0, 0)
         active_session.json["voltage"] = "12V AC"
         active_session.json["electrode_type"] = "2 lines 10cm from each other apart"
         active_session.json["liquid"] = "dusty 1 day old tap water"
@@ -83,14 +114,7 @@ def main():
         active_session.json["liquid_debt"] = 32
         active_session.json["liquid_temp"] = 18
 
-    machine.mot['x'].run_angle(angle=180, velocity=.5)  # get the motor away from push button
-    machine.zero_x()
-    for z in range(0, active_session.json["area_to_map"][2], active_session.json["step_size"][2]):
-        for y in range(0, active_session.json["area_to_map"][1], active_session.json["step_size"][1]):
-            for x in range(0, active_session.json["area_to_map"][0], active_session.json["step_size"][0]):
-                machine.move_pos((x, y, z))
-                active_session.add_image(img=camera.take_picture(), pos=(x, y, z))
-            machine.zero_x()
+    machine.map(electrical_measuring, {})
 
     GPIO.cleanup()  # prepare GPIO pins for next usage
 
