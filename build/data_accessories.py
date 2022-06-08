@@ -56,12 +56,12 @@ class MyImage(File):
             raise ValueError(f"File is no {self.file_extension}!")
         super(MyImage, self).__init__(path_to_file)
 
-    def get_label(self) -> tuple:
+    def get_label(self) -> tuple:  # todo: make getter
         """Returns a tuple with (x,y,z)."""
         label = self.name.replace(self.file_extension, '')
         return tuple(map(int, label.split(',')))
 
-    def set_label(self, new_label: tuple) -> None:
+    def set_label(self, new_label: tuple) -> None:  # todo: make setter
         """Renames image to include new data."""
         new_label = str(new_label)
         new_label = new_label.replace('(', '').replace(')', '').replace(' ', '')
@@ -69,7 +69,7 @@ class MyImage(File):
         path = os.path.join(os.path.split(self.path)[0], new_label)
         self.rename(path)
 
-    def get_matrix(self) -> np.ndarray:
+    def get_matrix(self) -> np.ndarray:  # todo: make getter
         return cv2.imread(self.path)
 
 
@@ -181,7 +181,7 @@ class Directory:
         shutil.rmtree(self.path)
         print(f"Deleted directory (and content) from {self.path}")
 
-    def get_files(self) -> list:
+    def get_files(self) -> list:  # todo: make getter
         """Returns a list containing all the names of the files contained in the directory."""
         return os.listdir(self.path)
 
@@ -205,6 +205,35 @@ class RpiSession(Directory):
 
         self.csv = CSV(os.path.join(self.path, self.name + ".csv"))
         self.json = JSON(os.path.join(self.path, self.name + ".json"))
+
+    def add_image(self, img: np.ndarray, pos: tuple) -> MyImage:
+        """Adds the image to the session folder and updates the position value in the json file."""
+        img_name = str(pos).replace('(', '').replace(')', '').replace(' ', '') + self.image_ext
+        img_path = os.path.join(self.path, img_name)
+        cv2.imwrite(filename=img_path, img=img)
+
+        self.json["last_pos"] = pos
+        return MyImage(img_path)
+
+    def del_image(self, img: MyImage = None, img_name: str = None) -> None:
+        """
+        Image gets deleted from session. If the image is not part of the session an Exception is raised! The image can
+        be specified via the Image object or the path to the image.
+        """
+
+        if img:
+            if os.path.split(img.path)[0] == self.path:  # Can not be chained with "and" because img could be None!
+                img.delete()
+        elif img_name:
+            os.remove(os.path.join(self.path, img_name))
+        else:
+            raise ValueError("No data about image provided!")
+
+    def get_images(self):  # todo: make getter
+        """This generator yields all image files in the session as MyImage."""
+        for file_name in os.listdir(path=self.path):
+            if self.image_ext in file_name:
+                yield MyImage(os.path.join(self.path, file_name))
 
     @classmethod
     def create_empty(cls, **kwargs) -> str:
@@ -230,32 +259,3 @@ class RpiSession(Directory):
         """Creates unique directory name like: 'session4'."""
         largest_num = max((int(f.replace(folder_convention, '')) for f in os.listdir(path) if folder_convention in f))
         return folder_convention + str(largest_num + 1)
-
-    def get_images(self):
-        """This generator yields all image files in the session as MyImage."""
-        for file_name in os.listdir(path=self.path):
-            if self.image_ext in file_name:
-                yield MyImage(os.path.join(self.path, file_name))
-
-    def add_image(self, img: np.ndarray, pos: tuple) -> MyImage:
-        """Adds the image to the session folder and updates the position value in the json file."""
-        img_name = str(pos).replace('(', '').replace(')', '').replace(' ', '') + self.image_ext
-        img_path = os.path.join(self.path, img_name)
-        cv2.imwrite(filename=img_path, img=img)
-
-        self.json["last_pos"] = pos
-        return MyImage(img_path)
-
-    def del_image(self, img: MyImage = None, img_name: str = None) -> None:
-        """
-        Image gets deleted from session. If the image is not part of the session an Exception is raised! The image can
-        be specified via the Image object or the path to the image.
-        """
-
-        if img:
-            if os.path.split(img.path)[0] == self.path:  # Can not be chained with "and" because img could be None!
-                img.delete()
-        elif img_name:
-            os.remove(os.path.join(self.path, img_name))
-        else:
-            raise ValueError("No data about image provided!")

@@ -1,5 +1,6 @@
 from math import pi
 import serial
+from tqdm import tqdm
 
 from RPi import GPIO as GPIO
 from hardware_accessories import StepperMotor, PushButton  # , Camera
@@ -55,17 +56,16 @@ class Machine:
             self.pos[idx] = actuator.mot.run_angle(required_rotations*360) / 360*actuator.gear_reduction + self.pos[idx]
 
     def map(self, measuring_function, measuring_kwargs: dict) -> None:
-        """z axis is negative"""
-        self.actuator['x'].mot.run_angle(angle=180, velocity=.5)  # get the motor away from push button
+        self.actuator['x'].mot.run_angle(angle=90, velocity=.5)  # get the motor away from push button
         self.actuator['x'].zero()
-
-        self.actuator['y'].mot.run_angle(angle=180, velocity=.5)
+        self.actuator['y'].mot.run_angle(angle=90, velocity=.5)
         self.actuator['y'].zero()
-
-        self.actuator['z'].mot.run_angle(angle=-180, velocity=.5)
+        self.actuator['z'].mot.run_angle(angle=90, velocity=.5)
         self.actuator['z'].zero()
+        self.move_pos((0, 0, self.json["distance_to_liquid"]))
+        self.pos = (0, 0, 0)
 
-        for z in range(0, self.json["area_to_map"][2], self.json["step_size"][2]):
+        for z in tqdm(range(0, self.json["area_to_map"][2], self.json["step_size"][2])):
             for y in range(0, self.json["area_to_map"][1], self.json["step_size"][1]):
                 for x in range(0, self.json["area_to_map"][0], self.json["step_size"][0]):
                     self.move_pos((x, y, z))
@@ -104,15 +104,15 @@ def main():
         active_session.csv.append([pos[0], pos[1], pos[2], format(adc.toVoltage(adc.readADC(0)), ".2f")])
 
     if len(active_session.json) == 0:
-        active_session.json["area_to_map"] = (125, 225, -25)
-        active_session.json["step_size"] = (5, 5, -5)
+        active_session.json["area_to_map"] = (90, 160, 50)
+        active_session.json["step_size"] = (2, 2, 10)
         active_session.json["pos"] = (0, 0, 0)
-        active_session.json["voltage"] = "12V AC"
-        active_session.json["electrode_type"] = "2 lines 10cm from each other apart"
-        active_session.json["liquid"] = "dusty 1 day old tap water"
-        active_session.json["ground_clearance"] = 5
-        active_session.json["liquid_debt"] = 32
-        active_session.json["liquid_temp"] = 18
+        active_session.json["voltage"] = "3V DC"
+        active_session.json["electrode_type"] = "2 points ~8cm apart"
+        active_session.json["liquid"] = "tap water"
+        active_session.json["distance_to_liquid"] = 13
+        active_session.json["liquid_debt"] = 62
+        active_session.json["liquid_temp"] = 21
 
     machine.map(electrical_measuring, {})
 

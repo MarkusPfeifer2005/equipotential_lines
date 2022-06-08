@@ -18,9 +18,8 @@ class MyCNN(nn.Module):
         self.conv1 = nn.Conv2d(in_channels=in_channels, out_channels=8, kernel_size=(3, 3), stride=(1, 1),
                                padding=(1, 1))
         self.pool = nn.MaxPool2d(kernel_size=(2, 2), stride=(2, 2))
-        self.conv2 = nn.Conv2d(in_channels=8, out_channels=16, kernel_size=(3, 3), stride=(1, 1),
-                               padding=(1, 1))
-        self.fc1 = nn.Linear(44400, num_classes)  # used: print(f"{x.shape = }") to determine 44400
+        self.conv2 = nn.Conv2d(in_channels=8, out_channels=16, kernel_size=(3, 3), stride=(1, 1), padding=(1, 1))
+        self.fc1 = nn.Linear(44400, num_classes)
 
     def forward(self, x):
         x = F.relu(self.conv1(x))
@@ -32,8 +31,8 @@ class MyCNN(nn.Module):
         return x
 
     def save(self, name: str, path: str = None) -> None:
-        """Saves model to file."""
-        name = name.split('.')[0]  # prevent wrong naming convention
+        """Saves model to file. Extension '.pt'. The prefix 'lcd_cnn_' gets added to the name."""
+        name = name.split('.')[0]
         path = os.path.join(path if path else "../models", f"lcd_cnn_{name}.pt")
         torch.save(self, path)
         print(f"Successfully saved model to {path}.")
@@ -95,12 +94,12 @@ def evaluate(model: nn.Module, test_loader: DataLoader, device: torch.device) ->
     num_samples = 0
 
     with torch.no_grad():
-        for x, y in test_loader:
-            x, y = x.to(device=device), y.to(device=device)
+        for x, targets in test_loader:
+            x, targets = x.to(device=device), targets.to(device=device)
 
-            scores = model(x)
-            _, predictions = scores.max(1)
-            num_correct += (predictions == y).sum()
+            predictions = model(x)
+            _, predictions = predictions.max(1)
+            num_correct += (predictions == targets).sum()
             num_samples += predictions.size(0)
 
     print(f"Got {num_correct} / {num_samples} with accuracy {float(num_correct) / float(num_samples) * 100:.2f}%.")
@@ -110,9 +109,14 @@ def evaluate(model: nn.Module, test_loader: DataLoader, device: torch.device) ->
 def main() -> None:
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     train_loader = MyLoader(device=device, train_path=r"D:\OneDrive - brg14.at\Desktop\train_data", batch_size=64)
-    test_loader = MyLoader(device=device, train_path=r"D:\OneDrive - brg14.at\Desktop\test_data", batch_size=64)
+    # test_loader = MyLoader(device=device, train_path=r"D:\OneDrive - brg14.at\Desktop\test_data", batch_size=64)
+    test_loader = train_loader
 
-    for epoch in [5, 10]:
+    model = torch.load("../models/lcd_cnn_5_98.pt")
+    evaluate(model=model, test_loader=test_loader, device=device)
+    exit(0)
+
+    for epoch in [5]:
         print(f"========= epochs: {epoch} =========")
 
         model = MyCNN().to(device)  # always creates a completely new model

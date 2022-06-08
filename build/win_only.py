@@ -89,13 +89,8 @@ class Plot:
         x_max, y_max, z_max = self.session.json["area_to_map"]
         x_stp, y_stp, z_stp = self.session.json["step_size"]
 
-        data = []
-        for z in range(0, self.session.json["area_to_map"][2], self.session.json["step_size"][2]):
-            plane = []
-            for y in range(0, self.session.json["area_to_map"][1], self.session.json["step_size"][1]):
-                row = [self.session.csv.get_value(pos=(x, y, z)) for x in range(0, x_max, x_stp)]
-                plane.append(row)
-            data.append(plane)
+        data = [[[self.session.csv.get_value(pos=(x, y, z)) for x in range(0, x_max, x_stp)]
+                 for y in range(y_max-y_stp, 0, -y_stp)] for z in range(0, z_max, z_stp)]  # y is iterated in reverse
 
         return np.array(data)
 
@@ -106,15 +101,30 @@ class HeatMap(Plot):
 
     def plot(self) -> None:
         data = self.prepare_data()
-        fig, ax = plt.subplots(nrows=2, ncols=len(data))
-        for i, d in enumerate(data):
-            ax[0, i].imshow(d)
+        fig, ax = plt.subplots(nrows=1, ncols=len(data))
+        planes = [i for i in range(0, self.session.json["area_to_map"][2], self.session.json["step_size"][2])]
+        for i, (d, debt) in enumerate(zip(data, planes)):
+            im = ax[i].imshow(d)
+            ax[i].set_title(f"depth {debt}mm")
+            ax[i].set_xlabel("x-distance [mm]")
+            ax[i].set_ylabel("y-distance [mm]")
+
+        # plt.tight_layout()
+
+        try:
+            plt.suptitle(f"voltage: {self.session.json['voltage']}\n"
+                         f"electrode type: {self.session.json['electrode_type']}\n"
+                         f"liquid: {self.session.json['liquid']}\n"
+                         f"liquid temperature: {self.session.json['liquid_temp']}°C")
+        except KeyError:
+            pass
+        plt.colorbar(im, ax=ax.ravel().tolist()).set_label("Voltage [V]")
         plt.show()
 
 
 def main() -> None:
     active_session = Session()
-    # model = torch.load(r"../models/lcd_cnn_30.pt").to("cpu")
+    # model = torch.load(r"../models/lcd_cnn_5_98.pt").to("cpu")
     # active_session.fill_csv(model=model)
     # active_session.prepare_for_ml()
 
