@@ -115,7 +115,7 @@ class StepperMotor(DCMotor):
     @pos.setter
     def pos(self, new_angle: float):
         """Takes the new angel in degrees and calculates the closest position/step to the new angle."""
-        self._pos = round(self.steps_per_rot * new_angle / 360)  # todo: test if works!
+        self._pos = round(self.steps_per_rot * new_angle / 360)
 
     def run(self, reverse: bool, velocity: float = 1):
         """Not implemented yet."""

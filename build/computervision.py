@@ -1,4 +1,6 @@
 import os
+
+import numpy as np
 from tqdm import tqdm
 
 import torch
@@ -7,6 +9,7 @@ import torch.optim as optim
 import torch.nn.functional as F
 from torch.utils.data import DataLoader, WeightedRandomSampler
 import torchvision.transforms as transforms
+from torchvision.transforms.functional import to_tensor
 from torchvision.datasets import ImageFolder
 
 
@@ -22,6 +25,10 @@ class MyCNN(nn.Module):
         self.fc1 = nn.Linear(44400, num_classes)
 
     def forward(self, x):
+        if isinstance(x, np.ndarray):
+            x = to_tensor(x)
+            x = torch.unsqueeze(x, dim=0)
+
         x = F.relu(self.conv1(x))
         x = self.pool(x)
         x = F.relu(self.conv2(x))
@@ -37,22 +44,40 @@ class MyCNN(nn.Module):
         torch.save(self, path)
         print(f"Successfully saved model to {path}.")
 
+    def classify(self, img: np.ndarray) -> int:
+        """Classifies single digit."""
+        predictions = self(img)
+        probability, digit = predictions.max(1)
+        probability, digit = probability.item(), digit.item()
+        return digit
+
+    def read(self, img: np.ndarray) -> float:
+        """Reads entire screen of multimeter."""
+        w, h = 150, 300
+        xy = [(215, 230), (310, 230), (400, 230)]
+
+        predictions = []
+        for x, y in xy:  # loop through all digit rois
+            digit_roi = img[y - h // 2:y + h // 2, x - w // 2:x + w // 2]
+            self.classify(digit_roi)
+            predictions.append(self.classify(digit_roi))
+
+        return float(f"{predictions[0]}.{predictions[1]}{predictions[2]}")
+
 
 class MyLoader(DataLoader):
-    """
-    See: https://www.youtube.com/watch?v=4JFVhJyTZ44&list=PLhhyoLH6IjfxeoooqP9rhU3HJIAVAJ3Vz&index=13
-    :return DataLoader:
-    """
+    """See: https://www.youtube.com/watch?v=4JFVhJyTZ44&list=PLhhyoLH6IjfxeoooqP9rhU3HJIAVAJ3Vz&index=13"""
+
+    transforms = transforms.Compose([
+        transforms.ToTensor(),
+        transforms.RandomRotation(degrees=(-5, 5)),
+        transforms.RandomAdjustSharpness(sharpness_factor=2),
+        transforms.RandomAutocontrast()
+    ])
 
     def __init__(self, train_path: str, batch_size: int, device: torch.device):
-        my_transforms = transforms.Compose([
-            transforms.ToTensor(),
-            transforms.RandomRotation(degrees=(-5, 5)),
-            transforms.RandomAdjustSharpness(sharpness_factor=2),
-            transforms.RandomAutocontrast()
-        ])
 
-        dataset = ImageFolder(root=train_path, transform=my_transforms)
+        dataset = ImageFolder(root=train_path, transform=self.transforms)
 
         class_weights = []
         for root, subdir, files in os.walk(train_path):
@@ -90,20 +115,25 @@ def evaluate(model: nn.Module, test_loader: DataLoader, device: torch.device) ->
     """
     model.eval()
 
-    num_correct = 0
-    num_samples = 0
-
     with torch.no_grad():
-        for x, targets in test_loader:
-            x, targets = x.to(device=device), targets.to(device=device)
 
-            predictions = model(x)
-            _, predictions = predictions.max(1)
-            num_correct += (predictions == targets).sum()
-            num_samples += predictions.size(0)
+        num_correct = 0
+        num_samples = 0
 
-    print(f"Got {num_correct} / {num_samples} with accuracy {float(num_correct) / float(num_samples) * 100:.2f}%.")
-    return float(num_correct) / float(num_samples) * 100
+        for ipt, targets in tqdm(test_loader):
+            ipt, targets = ipt.to(device=device), targets.to(device=device)
+
+            predictions = model(ipt)
+            predictions = predictions.max(1)  # returns tensor(maximums, indices of maximums)
+            _, indices = predictions  # indices are correspondent to the numbers (_ are the maximums)
+            correct = torch.eq(indices, targets)  # element wise comparison
+
+            num_correct += torch.sum(correct)  # adding correct ones
+            num_samples += indices.size(0)
+
+    success_ratio = float(num_correct) / float(num_samples) * 100
+    print(f"Got {num_correct} / {num_samples} with accuracy {success_ratio:.2f}%.")
+    return success_ratio
 
 
 def main() -> None:
@@ -111,10 +141,6 @@ def main() -> None:
     train_loader = MyLoader(device=device, train_path=r"D:\OneDrive - brg14.at\Desktop\train_data", batch_size=64)
     # test_loader = MyLoader(device=device, train_path=r"D:\OneDrive - brg14.at\Desktop\test_data", batch_size=64)
     test_loader = train_loader
-
-    model = torch.load("../models/lcd_cnn_5_98.pt")
-    evaluate(model=model, test_loader=test_loader, device=device)
-    exit(0)
 
     for epoch in [5]:
         print(f"========= epochs: {epoch} =========")

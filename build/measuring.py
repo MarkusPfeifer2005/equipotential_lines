@@ -6,6 +6,7 @@ from RPi import GPIO as GPIO
 from hardware_accessories import StepperMotor, PushButton  # , Camera
 from data_accessories import RpiSession, JSON
 import ADS1x15
+# import torch
 
 
 class Master:
@@ -52,7 +53,7 @@ class Machine:
         """Takes a 3d-position (x,y,z) and moves the measuring tip to that location."""
         for idx, actuator in enumerate(self.actuator.values()):
             distance = new_pos[idx] - self.pos[idx]  # calculate distance
-            required_rotations = distance / actuator.gear_reduction  # calculate required rotations of the motor in deg
+            required_rotations = distance / actuator.gear_reduction  # calculate required rotations in deg
             self.pos[idx] = actuator.mot.run_angle(required_rotations*360) / 360*actuator.gear_reduction + self.pos[idx]
 
     def map(self, measuring_function, measuring_kwargs: dict) -> None:
@@ -95,10 +96,13 @@ def main():
     active_session = RpiSession()
     machine = Machine(json=active_session.json)
     # camera = Camera()
+    # model = torch.load(PATH)
     adc = ADS1x15.ADS1115(1)
 
     # def optical_measuring(pos):
-    #     active_session.add_image(img=camera.take_picture(), pos=pos)
+    #     img = camera.take_picture()
+    #     active_session.add_image(img=img, pos=pos)
+    #     active_session.csv.append([pos[0], pos[1], pos[2], model.read(img)])
 
     def electrical_measuring(pos):
         active_session.csv.append([pos[0], pos[1], pos[2], format(adc.toVoltage(adc.readADC(0)), ".2f")])
@@ -108,15 +112,15 @@ def main():
         active_session.json["step_size"] = (2, 2, 10)
         active_session.json["pos"] = (0, 0, 0)
         active_session.json["voltage"] = "3V DC"
-        active_session.json["electrode_type"] = "2 points ~8cm apart"
-        active_session.json["liquid"] = "tap water"
-        active_session.json["distance_to_liquid"] = 13
-        active_session.json["liquid_debt"] = 62
-        active_session.json["liquid_temp"] = 21
+        active_session.json["electrode_type"] = "2 spheres ~8cm apart"
+        active_session.json["liquid"] = "1dm^3 tap water + 5g NaCl"
+        active_session.json["distance_to_liquid"] = 19
+        active_session.json["liquid_debt"] = 55
+        active_session.json["liquid_temp"] = 16
 
     machine.map(electrical_measuring, {})
 
-    GPIO.cleanup()  # prepare GPIO pins for next usage
+    GPIO.cleanup()
 
 
 if __name__ == "__main__":

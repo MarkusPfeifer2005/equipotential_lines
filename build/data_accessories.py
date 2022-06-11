@@ -8,11 +8,9 @@ import numpy as np
 from tkinter import filedialog, Tk
 
 
-def get_desktop() -> str:
-    """
-    Returns one of these 2 desktop paths dependent on the OS.
-    :return r"D:\OneDrive - brg14.at\Desktop" or "/home/pi/Desktop":
-    """
+def get_desktop() -> str:  # todo: refactor!
+    """Returns one of these 2 desktop paths dependent on the OS."""
+
     if platform.system() == "Windows":
         return r"D:\OneDrive - brg14.at\Desktop"
     elif platform.system() == "Linux":
@@ -56,12 +54,14 @@ class MyImage(File):
             raise ValueError(f"File is no {self.file_extension}!")
         super(MyImage, self).__init__(path_to_file)
 
-    def get_label(self) -> tuple:  # todo: make getter
+    @property
+    def label(self) -> tuple:
         """Returns a tuple with (x,y,z)."""
         label = self.name.replace(self.file_extension, '')
         return tuple(map(int, label.split(',')))
 
-    def set_label(self, new_label: tuple) -> None:  # todo: make setter
+    @label.setter
+    def label(self, new_label: tuple) -> None:
         """Renames image to include new data."""
         new_label = str(new_label)
         new_label = new_label.replace('(', '').replace(')', '').replace(' ', '')
@@ -69,7 +69,8 @@ class MyImage(File):
         path = os.path.join(os.path.split(self.path)[0], new_label)
         self.rename(path)
 
-    def get_matrix(self) -> np.ndarray:  # todo: make getter
+    @property
+    def matrix(self) -> np.ndarray:
         return cv2.imread(self.path)
 
 
@@ -181,7 +182,8 @@ class Directory:
         shutil.rmtree(self.path)
         print(f"Deleted directory (and content) from {self.path}")
 
-    def get_files(self) -> list:  # todo: make getter
+    @property
+    def files(self) -> list:
         """Returns a list containing all the names of the files contained in the directory."""
         return os.listdir(self.path)
 
@@ -229,7 +231,8 @@ class RpiSession(Directory):
         else:
             raise ValueError("No data about image provided!")
 
-    def get_images(self):  # todo: make getter
+    @property
+    def images(self):
         """This generator yields all image files in the session as MyImage."""
         for file_name in os.listdir(path=self.path):
             if self.image_ext in file_name:

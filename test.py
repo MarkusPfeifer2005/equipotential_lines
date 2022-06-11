@@ -1,17 +1,15 @@
-import csv
 import unittest
 import os
 import cv2
 import shutil
 import numpy as np
-import torch
 from build.data_accessories import File, MyImage, JSON, CSV, Directory, get_desktop
 from build.win_only import Session
-from build.computervision import MyCNN, MyLoader, train, evaluate
+from build.computervision import MyCNN
 
 
 class TestFile(unittest.TestCase):
-    def setUp(self) -> None:
+    def setUp(self):
         """Runs before each test. Each of the instances gets freshly created for each test."""
         try:
             open("test_files/file1.txt", 'x').close()  # create file
@@ -19,7 +17,7 @@ class TestFile(unittest.TestCase):
             pass
         self.file1 = File("test_files/file1.txt")
 
-    def tearDown(self) -> None:
+    def tearDown(self):
         """Runs after each test."""
         try:
             os.remove("test_files/file1.txt")
@@ -45,11 +43,11 @@ class TestFile(unittest.TestCase):
 
 
 class TestMyImage(unittest.TestCase):
-    def setUp(self) -> None:
+    def setUp(self):
         shutil.copyfile("test_files/session3/0,0,0.jpg", "test_files/0,0,0.jpg")
         self.img1 = MyImage("test_files/0,0,0.jpg")
 
-    def tearDown(self) -> None:
+    def tearDown(self):
         try:
             os.remove("test_files/0,0,0.jpg")
         except FileNotFoundError:
@@ -65,26 +63,26 @@ class TestMyImage(unittest.TestCase):
 
     def test_name(self):
         self.assertEqual(self.img1.name, "0,0,0.jpg")
-        self.img1.set_label((1, 1, 1))
-        self.assertEqual(self.img1.get_label(), (1, 1, 1))
+        self.img1.label = (1, 1, 1)
+        self.assertEqual(self.img1.label, (1, 1, 1))
 
     def test_get_label(self):
-        self.assertEqual(self.img1.get_label(), (0, 0, 0))
+        self.assertEqual(self.img1.label, (0, 0, 0))
 
     def test_set_label(self):
-        self.img1.set_label((1, 1, 1))
-        self.assertEqual(self.img1.get_label(), (1, 1, 1))
+        self.img1.label = (1, 1, 1)
+        self.assertEqual(self.img1.label, (1, 1, 1))
 
     def test_get_matrix(self):
-        self.assertIsInstance(self.img1.get_matrix(), np.ndarray)
+        self.assertIsInstance(self.img1.matrix, np.ndarray)
 
 
 class TestJSON(unittest.TestCase):
-    def setUp(self) -> None:
+    def setUp(self):
         shutil.copyfile("test_files/session3/session3.json", "test_files/session3.json")
         self.json1 = JSON("test_files/session3.json")
 
-    def tearDown(self) -> None:
+    def tearDown(self):
         try:
             os.remove("test_files/session3.json")
         except FileNotFoundError:
@@ -111,11 +109,11 @@ class TestJSON(unittest.TestCase):
 
 
 class TestCSV(unittest.TestCase):
-    def setUp(self) -> None:
+    def setUp(self):
         shutil.copyfile("test_files/session3/session3.csv", "test_files/session3.csv")
         self.csv1 = CSV("test_files/session3.csv")
 
-    def tearDown(self) -> None:
+    def tearDown(self):
         try:
             os.remove("test_files/session3.csv")
         except FileNotFoundError:
@@ -160,19 +158,19 @@ class TestCSV(unittest.TestCase):
 
 
 class TestDirectory(unittest.TestCase):
-    def setUp(self) -> None:
+    def setUp(self):
         os.mkdir("test_files/some_dir")
         open("test_files/some_dir/some.txt", 'x').close()
         self.dir1 = Directory("test_files/some_dir")
 
-    def tearDown(self) -> None:
+    def tearDown(self):
         try:
             shutil.rmtree("test_files/some_dir")
         except FileNotFoundError:
             pass
 
     def test_get_files(self):
-        self.assertEqual(self.dir1.get_files(), ['some.txt'])
+        self.assertEqual(self.dir1.files, ['some.txt'])
 
     def test_name(self):
         self.assertEqual(self.dir1.name, "some_dir")
@@ -184,12 +182,12 @@ class TestDirectory(unittest.TestCase):
 
 class TestSession(unittest.TestCase):
     """This test creates a separate 'container' folder to make removing the mess easier."""
-    def setUp(self) -> None:
+    def setUp(self):
         os.mkdir("test_files/container")
         shutil.copytree("test_files/session3", "test_files/container/session3")
         self.session1 = Session(path_to_dir="test_files/container/session3")
 
-    def tearDown(self) -> None:
+    def tearDown(self):
         try:
             shutil.rmtree("test_files/container")
         except FileNotFoundError:
@@ -218,11 +216,11 @@ class TestSession(unittest.TestCase):
             "0,45,0.jpg",
             "0,5,0.jpg"
         ]
-        for i, name in zip(self.session1.get_images(), img_names):
+        for i, name in zip(self.session1.images, img_names):
             self.assertIsInstance(i, MyImage)
             self.assertEqual(i.name, name)
 
-        self.assertEqual(len(list(self.session1.get_images())), len(img_names))
+        self.assertEqual(len(list(self.session1.images)), len(img_names))
 
     def test_add_image(self):
         image = cv2.imread("test_files/session3/0,25,0.jpg")
@@ -259,33 +257,12 @@ class TestSession(unittest.TestCase):
         self.session1.prepare_for_ml(target_dir="test_files/container", img_idx=0)
         self.assertEqual(list(os.walk("test_files/container/ml_session3")), result)
 
-    def test__split_and_tensor(self):
-        """Requires further improvement because it only checks if the result is a torch.Tensor."""
-        img = MyImage("test_files/container/session3/0,40,0.jpg")
-
-        for i in self.session1._split_and_tensor(img):
-            self.assertIsInstance(i, torch.Tensor)
-
-    def test_fill_csv(self):
-        # clear csv
-        with open("test_files/container/session3/session3.csv", mode="w", newline='') as file:
-            writer = csv.writer(file)
-            writer.writerows([])
-
-        # fill csv
-        model = MyCNN()
-        model.to("cpu")
-        self.session1.fill_csv(model=model)
-
-        # check if filled (values may be incorrect)
-        self.assertEqual(len(self.session1.csv), 10)
-
 
 class TestMyCNN(unittest.TestCase):
-    def setUp(self) -> None:
+    def setUp(self):
         self.model = MyCNN()
 
-    def tearDown(self) -> None:
+    def tearDown(self):
         try:
             os.remove("test_files/lcd_cnn_1.pt")
         except FileNotFoundError:
@@ -294,6 +271,11 @@ class TestMyCNN(unittest.TestCase):
     def test_save(self):
         self.model.save(name="1", path="test_files")
         self.assertEqual(os.path.isfile("test_files/lcd_cnn_1.pt"), True)
+
+    def test_read(self):
+        img = cv2.imread(r"test_files/session3/0,0,0.jpg")
+        out = self.model.read(img)
+        self.assertIsInstance(out, float)
 
 
 class TestGetDesktop(unittest.TestCase):

@@ -1,14 +1,8 @@
 import os
 import cv2
-from build.data_accessories import RpiSession, MyImage, JSON, Directory, get_desktop
-from PIL import Image
+from build.data_accessories import RpiSession, JSON, Directory, get_desktop
 import matplotlib.pyplot as plt
 import numpy as np
-from build.computervision import MyCNN
-
-import torch
-import torch.nn as nn
-import torchvision.transforms as transforms
 
 
 class Session(RpiSession):
@@ -22,31 +16,6 @@ class Session(RpiSession):
         super(Session, self).__init__(**kwargs)
         self.w, self.h = 150, 300
         self.xy = [(215, 230), (310, 230), (400, 230)]
-
-    def _split_and_tensor(self, img: MyImage) -> torch.tensor:
-        """It takes an image that contains all 3 digits, splits it
-        and yields 3 separate tensors."""
-        transformer = transforms.ToTensor()
-        img = img.get_matrix()  # Make a np.ndarray out of the MyImage.
-
-        for x, y in self.xy:  # loop through all digit rois
-            digit_roi = img[y - self.h // 2:y + self.h // 2, x - self.w // 2:x + self.w // 2]
-            digit_roi = Image.fromarray(digit_roi)  # convert cv2 to PIL
-            digit_roi = transformer(digit_roi)
-            digit_roi = torch.unsqueeze(digit_roi, dim=0)
-            yield digit_roi
-
-    def fill_csv(self, model: nn.Module) -> None:
-        """Completes the empty csv with data provided by cnn."""
-        model.eval()
-
-        for image in self.get_images():  # for each image in folder
-            digits = [int(model(digit).max(1)[-1][0]) for digit in self._split_and_tensor(image)]
-
-            # row = [x,y,z,v]
-            row_in_csv = list(image.get_label())
-            row_in_csv.append(float(f"{digits[0]}.{digits[1]}{digits[2]}"))
-            self.csv.append(row_in_csv)
 
     def prepare_for_ml(self, **kwargs):
         """
@@ -103,13 +72,13 @@ class HeatMap(Plot):
         data = self.prepare_data()
         fig, ax = plt.subplots(nrows=1, ncols=len(data))
         planes = [i for i in range(0, self.session.json["area_to_map"][2], self.session.json["step_size"][2])]
+        plt.tight_layout(pad=0.1)
+
         for i, (d, debt) in enumerate(zip(data, planes)):
             im = ax[i].imshow(d)
             ax[i].set_title(f"depth {debt}mm")
             ax[i].set_xlabel("x-distance [mm]")
             ax[i].set_ylabel("y-distance [mm]")
-
-        # plt.tight_layout()
 
         try:
             plt.suptitle(f"voltage: {self.session.json['voltage']}\n"
@@ -118,6 +87,7 @@ class HeatMap(Plot):
                          f"liquid temperature: {self.session.json['liquid_temp']}°C")
         except KeyError:
             pass
+
         plt.colorbar(im, ax=ax.ravel().tolist()).set_label("Voltage [V]")
         plt.show()
 
