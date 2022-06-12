@@ -77,18 +77,30 @@ class MyLoader(DataLoader):
 
     def __init__(self, train_path: str, batch_size: int, device: torch.device):
 
+        print("creating dataset...")
         dataset = ImageFolder(root=train_path, transform=self.transforms)
 
-        class_weights = []
-        for root, subdir, files in os.walk(train_path):
-            if len(files) > 0:  # if statement to avoid ZeroDivisionError
-                class_weights.append(1 / len(files))
+        # OLD:
+        # class_weights = []
+        # for root, subdir, files in os.walk(train_path):
+        #     if len(files) > 0:  # if statement to avoid ZeroDivisionError
+        #         class_weights.append(1 / len(files))
+        # NEW:
+        print("getting class weights...")
+        walker = os.walk(train_path)
+        next(walker)  # skips item 0 which is the root-directory itself
+        class_weights = [len(files) for dir_path, classes, files in walker]
 
-        sample_weights = [0] * len(dataset)
-        for idx, (data, label) in enumerate(dataset):
-            class_weight = class_weights[label]
-            sample_weights[idx] = class_weight
+        # specify weight for each individual image
+        # OLD:
+        # sample_weights = [0] * len(dataset)
+        # for idx, (data, label) in enumerate(dataset):
+        #     sample_weights[idx] = class_weights[label]
+        # NEW:
+        print("creating individual sample weights...")
+        sample_weights = [class_weights[label] for idx, (data, label) in enumerate(dataset)]
 
+        print("setting up ")
         sampler = WeightedRandomSampler(sample_weights, num_samples=len(sample_weights), replacement=True)
         super().__init__(dataset, batch_size=batch_size, sampler=sampler, pin_memory=device == torch.device("cuda"))
 
