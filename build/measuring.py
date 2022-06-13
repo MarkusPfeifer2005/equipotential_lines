@@ -89,7 +89,8 @@ class Machine:
             if self.pos[0] + self.json["step_size"][0] == self.json["area_to_map"][0]:
                 self.actuator['x'].zero()
                 self.pos = (0, self.pos[1], self.pos[2])  # the x pos must be set to 0
-            if self.pos[1] + self.json["step_size"][1] == self.json["area_to_map"][1]:
+            if self.pos[1] + self.json["step_size"][1] == self.json["area_to_map"][1] \
+                    and self.pos[0] + self.json["step_size"][0] == self.json["area_to_map"][0]:
                 self.actuator['y'].zero()
                 self.pos = (self.pos[0], 0, self.pos[2])  # the y pos must be set to 0
 
