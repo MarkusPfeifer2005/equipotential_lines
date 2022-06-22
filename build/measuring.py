@@ -4,7 +4,7 @@ from tqdm import tqdm
 
 from RPi import GPIO as GPIO
 from hardware_accessories import StepperMotor, PushButton  # , Camera
-from data_accessories import RpiSession, JSON
+from data_accessories import Session, JSON
 import ADS1x15
 
 
@@ -110,7 +110,7 @@ def main():
     GPIO.setmode(GPIO.BOARD)
 
     # define
-    active_session = RpiSession()
+    active_session = Session()
     machine = Machine(json=active_session.json)
     # camera = Camera()
     # model = torch.load(PATH)

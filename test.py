@@ -3,8 +3,7 @@ import os
 import cv2
 import shutil
 import numpy as np
-from build.data_accessories import File, MyImage, JSON, CSV, Directory, get_desktop
-from build.win_only import Session
+from build.data_accessories import File, MyImage, JSON, CSV, Directory, get_desktop, Session
 from build.computervision import MyCNN
 
 
