@@ -216,12 +216,14 @@ class Session(Directory):
         self.json = JSON(os.path.join(self.path, self.name + ".json"))
 
     def add_image(self, img: np.ndarray, pos: tuple) -> MyImage:
-        """Adds the image to the session folder and updates the position value in the json file."""
-        img_name = str(pos).replace('(', '').replace(')', '').replace(' ', '') + self.image_ext
+        """Adds the image to the session folder."""
+        img_name = str(pos)
+        img_name = img_name.replace('(', '').replace(')', '').replace('[', '').replace(']', '').replace(' ', '')
+        img_name += self.image_ext
+
         img_path = os.path.join(self.path, img_name)
         cv2.imwrite(filename=img_path, img=img)
 
-        self.json["last_pos"] = pos
         return MyImage(img_path)
 
     def del_image(self, img: MyImage = None, img_name: str = None) -> None:
@@ -295,8 +297,12 @@ class Session(Directory):
     @staticmethod
     def get_new_session_name(path: str, folder_convention: str = "session") -> str:
         """Creates unique directory name like: 'session4'."""
-        largest_num = max((int(f.replace(folder_convention, '')) for f in os.listdir(path) if folder_convention in f))
-        return folder_convention + str(largest_num + 1)
+        sessions = [folder for folder in os.listdir(path) if folder_convention in folder]
+        if not sessions:
+            return folder_convention + "0"
+        else:
+            largest_num = max((int(session.replace(folder_convention, '')) for session in sessions))
+            return folder_convention + str(largest_num + 1)
 
 
 class Plot:
@@ -314,7 +320,7 @@ class Plot:
         x_stp, y_stp, z_stp = self.session.json["step_size"]
 
         data = [[[self.session.csv.get_value(pos=(x, y, z)) for x in range(0, x_max, x_stp)]
-                 for y in range(y_max-y_stp, 0, -y_stp)] for z in range(0, z_max, z_stp)]  # y is iterated in reverse
+                 for y in range(y_max - y_stp, 0, -y_stp)] for z in range(0, z_max, z_stp)]  # y is iterated in reverse
 
         return np.array(data)
 

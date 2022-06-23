@@ -178,4 +178,5 @@ class Camera:
     def take_picture(self) -> np.ndarray:
         _, image = self.cam.read()
         image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
+        image = cv2.cvtColor(image, cv2.COLOR_GRAY2RGB)  # reconvert to rgb for cnn (gets converted when saving)
         return image

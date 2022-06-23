@@ -3,12 +3,12 @@ import serial
 from tqdm import tqdm
 
 from RPi import GPIO as GPIO
-from hardware_accessories import StepperMotor, PushButton  # , Camera
+from hardware_accessories import StepperMotor, PushButton, Camera
 from data_accessories import Session, JSON
+from computervision import MyCNN
 import ADS1x15
 
-
-# import torch
+import torch
 
 
 class Master:
@@ -108,35 +108,39 @@ class Machine:
 
 def main():
     GPIO.setmode(GPIO.BOARD)
-
-    # define
     active_session = Session()
     machine = Machine(json=active_session.json)
-    # camera = Camera()
-    # model = torch.load(PATH)
-    adc = ADS1x15.ADS1115(1)
 
-    # def optical_measuring(pos):
-    #     img = camera.take_picture()
-    #     active_session.add_image(img=img, pos=pos)
-    #     active_session.csv.append([pos[0], pos[1], pos[2], model.read(img)])
+    def optical_measuring(pos, cam: Camera):
+        img = cam.take_picture()
+        active_session.add_image(img=img, pos=pos)
+        active_session.csv.append([pos[0], pos[1], pos[2], model.read(img)])
 
-    def electrical_measuring(pos):
+    def electrical_measuring(pos, adc: ADS1x15.ADS1115):
         active_session.csv.append([pos[0], pos[1], pos[2], format(adc.toVoltage(adc.readADC(0)), ".2f")])
 
     if len(active_session.json) == 0:
         active_session.json["area_to_map"] = (90, 160, 50)
         active_session.json["step_size"] = (2, 2, 10)
         active_session.json["pos"] = (0, 0, 0)
-        active_session.json["voltage"] = "3V DC"
-        active_session.json["electrode_type"] = "2 spheres ~8cm apart"
+        active_session.json["voltage"] = "3V AC"
+        active_session.json["electrode_type"] = "2 spheres ~9cm apart"
         active_session.json["liquid"] = "1dm^3 tap water + 5g NaCl"
         active_session.json["distance_to_liquid"] = 19
         active_session.json["liquid_debt"] = 55
-        active_session.json["liquid_temp"] = 16
+        active_session.json["liquid_temp"] = 18
+        active_session.json["measuring_method"] = "optical"
+        active_session.json["model"] = "../models/lcd_cnn_5_99.pt"
 
-    machine.map(electrical_measuring, {})
-
+    if active_session.json["measuring_method"] == "electrical":
+        analog_digital_converter = ADS1x15.ADS1115(1)
+        machine.map(electrical_measuring, {"adc": analog_digital_converter})
+    elif active_session.json["measuring_method"] == "optical":
+        camera = Camera()
+        model = torch.load(active_session.json["model"], map_location=torch.device('cpu'))
+        machine.map(optical_measuring, {"cam": camera})
+    else:
+        raise ValueError("Invalid measuring method selected!")
     GPIO.cleanup()
 
 
