@@ -1,5 +1,4 @@
 import platform
-import shutil
 import json
 import csv
 from tkinter import filedialog, Tk
@@ -171,29 +170,7 @@ class CSV(File):
         raise ValueError(f"Position '{pos}' does not exist!")
 
 
-class Directory:
-    def __init__(self, path_to_dir: str):
-        self.path = path_to_dir
-        if not os.path.isdir(self.path):
-            os.mkdir(self.path)
-            print(f"Created directory at '{self.path}'")
-
-    def delete(self):
-        """Delete directory and content. The instance remains"""
-        shutil.rmtree(self.path)
-        print(f"Deleted directory (and content) from {self.path}")
-
-    @property
-    def files(self) -> list:
-        """Returns a list containing all the names of the files contained in the directory."""
-        return os.listdir(self.path)
-
-    @property
-    def name(self) -> str:
-        return os.path.split(self.path)[-1]
-
-
-class Session(Directory):
+class Session:
     """
     Special type of directory that contains a json and a csv.
     kwargs: path_to_dir
@@ -203,14 +180,14 @@ class Session(Directory):
     def __init__(self, **kwargs):
         self.image_ext = kwargs["image_ext"] if "image_ext" in kwargs else ".jpg"
         if "path_to_dir" in kwargs:
-            super(Session, self).__init__(kwargs["path_to_dir"])
+            self.path = kwargs["path_to_dir"]
         else:
             Tk().withdraw()
             path_to_dir = filedialog.askdirectory()
             if path_to_dir != '' and path_to_dir != ():
-                super(Session, self).__init__(path_to_dir)
+                self.path = path_to_dir
             else:
-                super(Session, self).__init__(self.create_empty())
+                self.path = self.create_empty()
 
         self.csv = CSV(os.path.join(self.path, self.name + ".csv"))
         self.json = JSON(os.path.join(self.path, self.name + ".json"))
@@ -251,11 +228,12 @@ class Session(Directory):
         img_idx_json = {"img_idx": kwargs["img_idx"]} if "img_idx" in kwargs else JSON("../build/image_index.json")
 
         # create folders
-        ml_dir = Directory(os.path.join(kwargs["target_dir"], "ml_" + self.name)) if "target_dir" in kwargs \
-            else Directory(os.path.join(get_desktop(), "ml_" + self.name))
+        ml_dir = os.path.join(kwargs["target_dir"], "ml_" + self.name) if "target_dir" in kwargs\
+            else os.path.join(get_desktop(), "ml_" + self.name)
+        os.mkdir(ml_dir)
 
         for i in range(10):
-            Directory(os.path.join(ml_dir.path, str(i)))
+            os.mkdir(os.path.join(ml_dir, str(i)))
 
         # fill folders
         for x, y, z, v in self.csv:  # Attention: v is a float value like: v.vv
@@ -264,7 +242,7 @@ class Session(Directory):
             for idx, (x1, y1) in enumerate(xy):
                 digit_roi = image[y1 - h // 2:y1 + h // 2, x1 - w // 2:x1 + w // 2]  # digit roi
                 digit = format(float(v), ".2f").replace('.', '')[idx]  # format makes it a string with 2 decimals
-                img_path = os.path.join(ml_dir.path, digit, f"i{img_idx_json['img_idx']}n{digit}.jpg")
+                img_path = os.path.join(ml_dir, digit, f"i{img_idx_json['img_idx']}n{digit}.jpg")
                 cv2.imwrite(img_path, digit_roi)
                 img_idx_json["img_idx"] += 1
 
@@ -303,6 +281,10 @@ class Session(Directory):
         else:
             largest_num = max((int(session.replace(folder_convention, '')) for session in sessions))
             return folder_convention + str(largest_num + 1)
+
+    @property
+    def name(self) -> str:
+        return os.path.split(self.path)[-1]
 
 
 class Plot:
@@ -355,9 +337,6 @@ class HeatMap(Plot):
 
 def main() -> None:
     active_session = Session()
-    # model = torch.load(r"../models/lcd_cnn_5_98.pt").to("cpu")
-    # active_session.fill_csv(model=model)
-    # active_session.prepare_for_ml()
 
     p = HeatMap(session=active_session)
     p.plot()

@@ -67,7 +67,7 @@ class Machine:
                      for z in range(0, self.json["area_to_map"][2], self.json["step_size"][2])
                      for y in range(0, self.json["area_to_map"][1], self.json["step_size"][1])
                      for x in range(0, self.json["area_to_map"][0], self.json["step_size"][0])]
-        if self.json["pos"] != [0, 0, 0]:
+        if self.json["pos"] != [0, 0, 0]:  # continue measurement if session was not completed
             positions = positions[positions.index(self.json["pos"]):]
 
         # initialize machine
@@ -119,6 +119,11 @@ def main():
     def electrical_measuring(pos, adc: ADS1x15.ADS1115):
         active_session.csv.append([pos[0], pos[1], pos[2], format(adc.toVoltage(adc.readADC(0)), ".2f")])
 
+    def voltage_and_amperage(pos, adc: ADS1x15.ADS1115, cam: Camera):
+        electrical_measuring(pos=pos, adc=adc)
+
+
+
     if len(active_session.json) == 0:
         active_session.json["area_to_map"] = (90, 160, 50)
         active_session.json["step_size"] = (2, 2, 10)
@@ -139,6 +144,11 @@ def main():
         camera = Camera()
         model = torch.load(active_session.json["model"], map_location=torch.device('cpu'))
         machine.map(optical_measuring, {"cam": camera})
+    elif active_session.json["measuring_method"] == "U&I":
+        analog_digital_converter = ADS1x15.ADS1115(1)
+        camera = Camera()
+        model = torch.load(active_session.json["model"], map_location=torch.device('cpu'))
+        machine.map(voltage_and_amperage, {"adc": analog_digital_converter, "cam": camera})
     else:
         raise ValueError("Invalid measuring method selected!")
     GPIO.cleanup()

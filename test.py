@@ -3,7 +3,7 @@ import os
 import cv2
 import shutil
 import numpy as np
-from build.data_accessories import File, MyImage, JSON, CSV, Directory, get_desktop, Session
+from build.data_accessories import File, MyImage, JSON, CSV, get_desktop, Session
 from build.computervision import MyCNN
 
 
@@ -154,29 +154,6 @@ class TestCSV(unittest.TestCase):
     def test___delitem__(self):
         del self.csv1[2]
         self.assertEqual(len(self.csv1), 9)
-
-
-class TestDirectory(unittest.TestCase):
-    def setUp(self):
-        os.mkdir("test_files/some_dir")
-        open("test_files/some_dir/some.txt", 'x').close()
-        self.dir1 = Directory("test_files/some_dir")
-
-    def tearDown(self):
-        try:
-            shutil.rmtree("test_files/some_dir")
-        except FileNotFoundError:
-            pass
-
-    def test_get_files(self):
-        self.assertEqual(self.dir1.files, ['some.txt'])
-
-    def test_name(self):
-        self.assertEqual(self.dir1.name, "some_dir")
-
-    def test_delete(self):
-        self.dir1.delete()
-        self.assertEqual(os.path.isdir("test_files/some_dir"), False)
 
 
 class TestSession(unittest.TestCase):
