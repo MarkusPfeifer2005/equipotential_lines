@@ -49,7 +49,7 @@ class Machine:
         self.actuator = {
             'x': Actuator(mot_pins=[7, 11, 13, 15], mot_reverse=False, gear_reduction=17 * pi, p_button_pin=38),
             'y': Actuator(mot_pins=[12, 16, 18, 22], mot_reverse=True, gear_reduction=51, p_button_pin=40),
-            'z': Actuator(mot_pins=[19, 21, 23, 29], mot_reverse=False, gear_reduction=7.35 * pi / 2, p_button_pin=36)
+            'z': Actuator(mot_pins=[19, 21, 23, 29], mot_reverse=True, gear_reduction=7.35 * pi / 2, p_button_pin=36)
         }
         self.json = json
 
@@ -121,8 +121,6 @@ def main():
 
     def voltage_and_amperage(pos, adc: ADS1x15.ADS1115, cam: Camera):
         electrical_measuring(pos=pos, adc=adc)
-
-
 
     if len(active_session.json) == 0:
         active_session.json["area_to_map"] = (90, 160, 50)
