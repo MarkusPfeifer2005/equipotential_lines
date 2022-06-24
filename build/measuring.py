@@ -119,9 +119,6 @@ def main():
     def electrical_measuring(pos, adc: ADS1x15.ADS1115):
         active_session.csv.append([pos[0], pos[1], pos[2], format(adc.toVoltage(adc.readADC(0)), ".2f")])
 
-    def voltage_and_amperage(pos, adc: ADS1x15.ADS1115, cam: Camera):
-        electrical_measuring(pos=pos, adc=adc)
-
     if len(active_session.json) == 0:
         active_session.json["area_to_map"] = (90, 160, 50)
         active_session.json["step_size"] = (2, 2, 10)
