@@ -139,11 +139,6 @@ def main():
         camera = Camera()
         model = torch.load(active_session.json["model"], map_location=torch.device('cpu'))
         machine.map(optical_measuring, {"cam": camera})
-    elif active_session.json["measuring_method"] == "U&I":
-        analog_digital_converter = ADS1x15.ADS1115(1)
-        camera = Camera()
-        model = torch.load(active_session.json["model"], map_location=torch.device('cpu'))
-        machine.map(voltage_and_amperage, {"adc": analog_digital_converter, "cam": camera})
     else:
         raise ValueError("Invalid measuring method selected!")
     GPIO.cleanup()
