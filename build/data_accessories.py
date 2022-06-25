@@ -6,6 +6,10 @@ import os
 import cv2
 import matplotlib.pyplot as plt
 import numpy as np
+from tqdm import tqdm
+
+import torch
+from build.computervision import MyCNN
 
 
 def get_desktop() -> str:  # todo: refactor!
@@ -217,6 +221,19 @@ class Session:
         else:
             raise ValueError("No data about image provided!")
 
+    def read_images(self, model: torch.nn.Module = None):
+        """
+        Reads the images and files the csv file. It does not care if data is already present,
+        new data gets just appended.
+        """
+        if not model:
+            model = torch.load(self.json["model"], map_location=torch.device("cpu"))
+        model.eval()
+
+        for image in tqdm(self.images):
+            pos = image.label
+            self.csv.append([pos[0], pos[1], pos[2], model.read(image.matrix)])
+
     def prepare_for_ml(self, **kwargs):
         """
         Creates folder with images that can be used to broaden the capabilities of cnn. The method only works if
@@ -228,7 +245,7 @@ class Session:
         img_idx_json = {"img_idx": kwargs["img_idx"]} if "img_idx" in kwargs else JSON("../build/image_index.json")
 
         # create folders
-        ml_dir = os.path.join(kwargs["target_dir"], "ml_" + self.name) if "target_dir" in kwargs\
+        ml_dir = os.path.join(kwargs["target_dir"], "ml_" + self.name) if "target_dir" in kwargs \
             else os.path.join(get_desktop(), "ml_" + self.name)
         os.mkdir(ml_dir)
 
@@ -287,29 +304,19 @@ class Session:
         return os.path.split(self.path)[-1]
 
 
-class Plot:
+class HeatMap:
     def __init__(self, session: Session):
         self.session = session
-
-    def plot(self) -> None:
-        pass
-
-    def __call__(self, *args, **kwargs):
-        self.plot()
 
     def prepare_data(self) -> np.array:
         x_max, y_max, z_max = self.session.json["area_to_map"]
         x_stp, y_stp, z_stp = self.session.json["step_size"]
 
         data = [[[self.session.csv.get_value(pos=(x, y, z)) for x in range(0, x_max, x_stp)]
-                 for y in range(y_max - y_stp, 0, -y_stp)] for z in range(0, z_max, z_stp)]  # y is iterated in reverse
+                 for y in range(y_max - y_stp, 0, -y_stp)] for z in tqdm(range(0, z_max, z_stp))]
+        #            ^y is iterated in reverse
 
         return np.array(data)
-
-
-class HeatMap(Plot):
-    def __init__(self, session=None):
-        super().__init__(session)
 
     def plot(self) -> None:
         data = self.prepare_data()
@@ -337,6 +344,7 @@ class HeatMap(Plot):
 
 def main() -> None:
     active_session = Session()
+    # active_session.read_images()
 
     p = HeatMap(session=active_session)
     p.plot()

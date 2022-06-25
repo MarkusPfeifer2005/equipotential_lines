@@ -5,10 +5,10 @@ from tqdm import tqdm
 from RPi import GPIO as GPIO
 from hardware_accessories import StepperMotor, PushButton, Camera
 from data_accessories import Session, JSON
-from computervision import MyCNN
 import ADS1x15
 
 import torch
+from computervision import MyCNN
 
 
 class Master:
@@ -138,6 +138,7 @@ def main():
     elif active_session.json["measuring_method"] == "optical":
         camera = Camera()
         model = torch.load(active_session.json["model"], map_location=torch.device('cpu'))
+        model.eval()
         machine.map(optical_measuring, {"cam": camera})
     else:
         raise ValueError("Invalid measuring method selected!")

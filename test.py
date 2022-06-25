@@ -3,6 +3,8 @@ import os
 import cv2
 import shutil
 import numpy as np
+import torch
+
 from build.data_accessories import File, MyImage, JSON, CSV, get_desktop, Session
 from build.computervision import MyCNN
 
@@ -169,6 +171,56 @@ class TestSession(unittest.TestCase):
         except FileNotFoundError:
             pass
 
+    def test_add_image(self):
+        image = cv2.imread("test_files/session3/0,25,0.jpg")
+        self.session1.add_image(img=image, pos=(0, 50, 0))
+        self.assertEqual(os.path.isfile("test_files/container/session3/0,50,0.jpg"), True)
+
+    def test_del_image(self):
+        # variant 1:
+        self.session1.del_image(img_name="0,15,0.jpg")
+        self.assertEqual(os.path.isfile("test_files/container/session3/0,15,0.jpg"), False)
+        # variant 2:
+        img = MyImage("test_files/container/session3/0,20,0.jpg")
+        self.session1.del_image(img)
+        self.assertEqual(os.path.isfile("test_files/container/session3/0,20,0.jpg"), False)
+
+    def test_read_images(self):
+        model = MyCNN().eval()
+        self.session1.read_images(model)
+
+        self.assertEqual(self.session1.csv[0][:3], ['0', '0', '0'])
+        self.assertEqual(self.session1.csv[1][:3], ['0', '5', '0'])
+        self.assertEqual(self.session1.csv[2][:3], ['0', '10', '0'])
+        self.assertEqual(self.session1.csv[3][:3], ['0', '15', '0'])
+        self.assertEqual(self.session1.csv[4][:3], ['0', '20', '0'])
+        self.assertEqual(self.session1.csv[5][:3], ['0', '25', '0'])
+        self.assertEqual(self.session1.csv[6][:3], ['0', '30', '0'])
+        self.assertEqual(self.session1.csv[7][:3], ['0', '35', '0'])
+        self.assertEqual(self.session1.csv[8][:3], ['0', '40', '0'])
+        self.assertEqual(self.session1.csv[9][:3], ['0', '45', '0'])
+
+    def test_prepare_for_ml(self):
+        result = [
+            ('test_files/container/ml_session3', ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'], []),
+            ('test_files/container/ml_session3\\0', [], ['i10n0.jpg', 'i13n0.jpg', 'i16n0.jpg', 'i19n0.jpg',
+                                                         'i1n0.jpg', 'i22n0.jpg', 'i25n0.jpg', 'i28n0.jpg',
+                                                         'i4n0.jpg', 'i7n0.jpg']),
+            ('test_files/container/ml_session3\\1', [], []),
+            ('test_files/container/ml_session3\\2', [], ['i0n2.jpg', 'i12n2.jpg', 'i15n2.jpg', 'i18n2.jpg', 'i21n2.jpg',
+                                                         'i24n2.jpg', 'i27n2.jpg', 'i3n2.jpg', 'i6n2.jpg', 'i9n2.jpg']),
+            ('test_files/container/ml_session3\\3', [], []),
+            ('test_files/container/ml_session3\\4', [], []),
+            ('test_files/container/ml_session3\\5', [], []),
+            ('test_files/container/ml_session3\\6', [], ['i17n6.jpg']),
+            ('test_files/container/ml_session3\\7', [], ['i11n7.jpg', 'i14n7.jpg', 'i20n7.jpg', 'i23n7.jpg',
+                                                         'i26n7.jpg', 'i29n7.jpg', 'i2n7.jpg', 'i5n7.jpg', 'i8n7.jpg']),
+            ('test_files/container/ml_session3\\8', [], []),
+            ('test_files/container/ml_session3\\9', [], [])
+        ]
+        self.session1.prepare_for_ml(target_dir="test_files/container", img_idx=0)
+        self.assertEqual(list(os.walk("test_files/container/ml_session3")), result)
+
     def test_create_empty(self):
         Session.create_empty(path_to_dir="test_files/container")  # creates session4
         self.assertEqual(os.path.isdir("test_files/container/session4"), True)
@@ -197,41 +249,6 @@ class TestSession(unittest.TestCase):
             self.assertEqual(i.name, name)
 
         self.assertEqual(len(list(self.session1.images)), len(img_names))
-
-    def test_add_image(self):
-        image = cv2.imread("test_files/session3/0,25,0.jpg")
-        self.session1.add_image(img=image, pos=(0, 50, 0))
-        self.assertEqual(os.path.isfile("test_files/container/session3/0,50,0.jpg"), True)
-
-    def test_del_image(self):
-        # variant 1:
-        self.session1.del_image(img_name="0,15,0.jpg")
-        self.assertEqual(os.path.isfile("test_files/container/session3/0,15,0.jpg"), False)
-        # variant 2:
-        img = MyImage("test_files/container/session3/0,20,0.jpg")
-        self.session1.del_image(img)
-        self.assertEqual(os.path.isfile("test_files/container/session3/0,20,0.jpg"), False)
-
-    def test_prepare_for_ml(self):
-        result = [
-            ('test_files/container/ml_session3', ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'], []),
-            ('test_files/container/ml_session3\\0', [], ['i10n0.jpg', 'i13n0.jpg', 'i16n0.jpg', 'i19n0.jpg',
-                                                         'i1n0.jpg', 'i22n0.jpg', 'i25n0.jpg', 'i28n0.jpg',
-                                                         'i4n0.jpg', 'i7n0.jpg']),
-            ('test_files/container/ml_session3\\1', [], []),
-            ('test_files/container/ml_session3\\2', [], ['i0n2.jpg', 'i12n2.jpg', 'i15n2.jpg', 'i18n2.jpg', 'i21n2.jpg',
-                                                         'i24n2.jpg', 'i27n2.jpg', 'i3n2.jpg', 'i6n2.jpg', 'i9n2.jpg']),
-            ('test_files/container/ml_session3\\3', [], []),
-            ('test_files/container/ml_session3\\4', [], []),
-            ('test_files/container/ml_session3\\5', [], []),
-            ('test_files/container/ml_session3\\6', [], ['i17n6.jpg']),
-            ('test_files/container/ml_session3\\7', [], ['i11n7.jpg', 'i14n7.jpg', 'i20n7.jpg', 'i23n7.jpg',
-                                                         'i26n7.jpg', 'i29n7.jpg', 'i2n7.jpg', 'i5n7.jpg', 'i8n7.jpg']),
-            ('test_files/container/ml_session3\\8', [], []),
-            ('test_files/container/ml_session3\\9', [], [])
-        ]
-        self.session1.prepare_for_ml(target_dir="test_files/container", img_idx=0)
-        self.assertEqual(list(os.walk("test_files/container/ml_session3")), result)
 
 
 class TestMyCNN(unittest.TestCase):
