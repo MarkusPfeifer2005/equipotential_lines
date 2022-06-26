@@ -105,7 +105,7 @@ def main():
         img = cam.take_picture()
         session.add_image(img=img, pos=pos)
         if read:
-            session.csv.append([pos[0], pos[1], pos[2], model.read(img)])
+            session.csv.append([pos[0], pos[1], pos[2], model.read(img, decimal_pos=1)])
 
     def electrical_measuring(pos, adc: ADS1x15.ADS1115):
         """The voltage gets recorded via teh ADC."""

@@ -181,7 +181,7 @@ class TestSession(unittest.TestCase):
 
     def test_read_images(self):
         model = MyCNN().eval()
-        self.session1.read_images(model)
+        self.session1.read_images(model=model, decimal_pos=1)
 
         self.assertEqual(self.session1.csv[0][:3], ['0', '0', '0'])
         self.assertEqual(self.session1.csv[1][:3], ['0', '5', '0'])
@@ -261,7 +261,7 @@ class TestMyCNN(unittest.TestCase):
 
     def test_read(self):
         img = cv2.imread(r"test_files/session3/0,0,0.jpg")
-        out = self.model.read(img)
+        out = self.model.read(img, decimal_pos=1)
         self.assertIsInstance(out, float)
 
 

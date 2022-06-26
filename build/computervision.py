@@ -54,7 +54,7 @@ class MyCNN(nn.Module):
         probability, digit = probability.item(), digit.item()
         return digit
 
-    def read(self, img: np.ndarray) -> float:
+    def read(self, img: np.ndarray, decimal_pos: int) -> float:
         """Reads entire screen of multimeter."""
         w, h = 150, 300
         xy = [(215, 230), (310, 230), (400, 230)]
@@ -65,7 +65,10 @@ class MyCNN(nn.Module):
             self.classify(digit_roi)
             predictions.append(self.classify(digit_roi))
 
-        return float(f"{predictions[0]}.{predictions[1]}{predictions[2]}")
+        value = f"{'.' if decimal_pos == 0 else ''}{predictions[0]}{'.' if decimal_pos == 1 else ''}{predictions[1]}" \
+                f"{'.' if decimal_pos == 2 else ''}{predictions[2]}{'.' if decimal_pos == 3 else ''} "
+
+        return float(value)
 
 
 class MyLoader(DataLoader):

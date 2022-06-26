@@ -210,7 +210,7 @@ class Session:
 
         return MyImage(img_path)
 
-    def read_images(self, model: torch.nn.Module = None):
+    def read_images(self, decimal_pos: int, model: torch.nn.Module = None):
         """
         Reads the images and files the csv file. It does not care if data is already present,
         new data gets just appended.
@@ -221,7 +221,7 @@ class Session:
 
         for image in tqdm(self.images):
             pos = image.label
-            self.csv.append([pos[0], pos[1], pos[2], model.read(image.matrix)])
+            self.csv.append([pos[0], pos[1], pos[2], model.read(image.matrix, decimal_pos=decimal_pos)])
 
     def prepare_for_ml(self, **kwargs):
         """
@@ -337,7 +337,7 @@ def main() -> None:
 
     if len(session.csv) == 0:
         try:
-            session.read_images()  # If no images are available the csv remains untouched.
+            session.read_images(decimal_pos=1)  # If no images are available the csv remains untouched.
         except KeyError:  # If no model has been specified.
             pass
 
