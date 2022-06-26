@@ -1,9 +1,15 @@
+#!/usr/bin/env python
+
+"""
+Here you find all unit tests.
+Not every function and class gets tested, since there are some tests that would require the machine to operate.
+"""
+
 import unittest
 import os
 import cv2
 import shutil
 import numpy as np
-import torch
 
 from build.data_accessories import File, MyImage, JSON, CSV, get_desktop, Session
 from build.computervision import MyCNN
@@ -38,9 +44,6 @@ class TestFile(unittest.TestCase):
 
     def test_rename(self):
         self.file1.rename("test_files/renamed.txt")
-
-    def test_delete(self):
-        self.file1.delete()
 
 
 class TestMyImage(unittest.TestCase):
@@ -175,15 +178,6 @@ class TestSession(unittest.TestCase):
         image = cv2.imread("test_files/session3/0,25,0.jpg")
         self.session1.add_image(img=image, pos=(0, 50, 0))
         self.assertEqual(os.path.isfile("test_files/container/session3/0,50,0.jpg"), True)
-
-    def test_del_image(self):
-        # variant 1:
-        self.session1.del_image(img_name="0,15,0.jpg")
-        self.assertEqual(os.path.isfile("test_files/container/session3/0,15,0.jpg"), False)
-        # variant 2:
-        img = MyImage("test_files/container/session3/0,20,0.jpg")
-        self.session1.del_image(img)
-        self.assertEqual(os.path.isfile("test_files/container/session3/0,20,0.jpg"), False)
 
     def test_read_images(self):
         model = MyCNN().eval()

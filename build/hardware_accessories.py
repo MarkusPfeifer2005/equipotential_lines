@@ -1,3 +1,8 @@
+"""
+Hardware specific parts of the machine get controlled from here. Further, plans involve to make an extra repository
+where such things like motors get controlled with c++ and a python API, but no concrete schedule is provided!
+"""
+
 from RPi import GPIO as GPIO
 import time
 import itertools

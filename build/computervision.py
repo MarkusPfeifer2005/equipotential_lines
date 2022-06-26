@@ -1,5 +1,8 @@
-import os
+#!/usr/bin/env python
 
+"""Everything having to do with machinelearning is handled via this file."""
+
+import os
 import numpy as np
 from tqdm import tqdm
 

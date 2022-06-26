@@ -1,5 +1,8 @@
+#!/usr/bin/env python
+
+"""This file is run from the raspberry pi and takes the measurements as specified in the json file below."""
+
 from math import pi
-import serial
 from tqdm import tqdm
 
 from RPi import GPIO as GPIO
@@ -9,23 +12,6 @@ import ADS1x15
 
 import torch
 from computervision import MyCNN
-
-
-class Master:
-    """Communicates with raspberry pi pico via UART-protocol."""
-
-    def __init__(self, port: str = "/dev/ttyS0", baudrate: int = 9600):
-        self.ser = serial.Serial(port=port, baudrate=baudrate)
-        print(self.ser)
-
-    def send(self, msg: str) -> None:
-        """Sends a message to the client/slave."""
-        msg += "\n"
-        self.ser.write(msg.encode())
-
-    def receive(self) -> str:
-        """Waits until new message is received and returns it as string."""
-        return self.ser.read_until().decode()
 
 
 class Actuator:
@@ -58,8 +44,8 @@ class Machine:
         for idx, actuator in enumerate(self.actuator.values()):
             distance = new_pos[idx] - self.pos[idx]  # calculate distance
             required_rotations = distance / actuator.gear_reduction  # calculate required rotations in deg
-            self.pos[idx] = actuator.mot.run_angle(required_rotations * 360) / 360 * actuator.gear_reduction + self.pos[
-                idx]
+            self.pos[idx] = actuator.mot.run_angle(required_rotations * 360) / 360 * actuator.gear_reduction \
+                + self.pos[idx]
 
     def map(self, measuring_function, measuring_kwargs: dict) -> None:
         # plan path
@@ -94,7 +80,7 @@ class Machine:
                 self.actuator['y'].zero()
                 self.pos = (self.pos[0], 0, self.pos[2])  # the y pos must be set to 0
 
-        self.move_pos((0, 0, -self.json["distance_to_liquid"]//2))  # raise out of liquid to avoid corrosion
+        self.move_pos((0, 0, -self.json["distance_to_liquid"] // 2))  # raise out of liquid to avoid corrosion
 
     @property
     def pos(self) -> list:
@@ -108,38 +94,48 @@ class Machine:
 
 def main():
     GPIO.setmode(GPIO.BOARD)
-    active_session = Session()
-    machine = Machine(json=active_session.json)
+    session = Session()
+    machine = Machine(json=session.json)
 
-    def optical_measuring(pos, cam: Camera):
+    def optical_measuring(pos, cam: Camera, read: bool):
+        """
+        Records the displayed value of Multimeter display as an image.
+        If desired the image can be read immediately
+        """
         img = cam.take_picture()
-        active_session.add_image(img=img, pos=pos)
-        active_session.csv.append([pos[0], pos[1], pos[2], model.read(img)])
+        session.add_image(img=img, pos=pos)
+        if read:
+            session.csv.append([pos[0], pos[1], pos[2], model.read(img)])
 
     def electrical_measuring(pos, adc: ADS1x15.ADS1115):
-        active_session.csv.append([pos[0], pos[1], pos[2], format(adc.toVoltage(adc.readADC(0)), ".2f")])
+        """The voltage gets recorded via teh ADC."""
+        session.csv.append([pos[0], pos[1], pos[2], format(adc.toVoltage(adc.readADC(0)), ".2f")])
 
-    if len(active_session.json) == 0:
-        active_session.json["area_to_map"] = (90, 160, 50)
-        active_session.json["step_size"] = (2, 2, 10)
-        active_session.json["pos"] = (0, 0, 0)
-        active_session.json["voltage"] = "3V AC"
-        active_session.json["electrode_type"] = "2 spheres ~9cm apart"
-        active_session.json["liquid"] = "1dm^3 tap water + 5g NaCl"
-        active_session.json["distance_to_liquid"] = 19
-        active_session.json["liquid_debt"] = 55
-        active_session.json["liquid_temp"] = 18
-        active_session.json["measuring_method"] = "optical"
-        active_session.json["model"] = "../models/lcd_cnn_5_99.pt"
+    if len(session.json) == 0:
+        # All length-measurements are to be entered in mm!
+        session.json["area_to_map"] = (0, 0, 0)  # x,y,z limits
+        session.json["step_size"] = (0, 0, 0)  # individual step sizes for each dimension
+        session.json["pos"] = (0, 0, 0)  # current position (automatically used when interrupted session is used
+        session.json["voltage"] = "VOLTAGE"  # specify used voltage for record and to display in plot
+        session.json["electrode_type"] = "ELECTRODE_DESCRIPTION"  # describe the electrode setup
+        session.json["liquid"] = "LIQUID_DESCRIPTION"  # describe the used liquid
+        session.json["distance_to_liquid"] = 0  # distance from measuring tip fully retracted to liquid surface
+        session.json["liquid_depth"] = 0
+        session.json["liquid_temp"] = 0  # in °C (gets added automatically in the plot)
+        session.json["measuring_method"] = "MEASURING_METHOD"  # select "optical" / "electrical" (see code below)
+        session.json["model"] = "../models/MODEL_NAME.pt"  # specify model if raspi should read immediately
 
-    if active_session.json["measuring_method"] == "electrical":
+    if session.json["measuring_method"] == "electrical":
         analog_digital_converter = ADS1x15.ADS1115(1)
         machine.map(electrical_measuring, {"adc": analog_digital_converter})
-    elif active_session.json["measuring_method"] == "optical":
+    elif session.json["measuring_method"] == "optical":
         camera = Camera()
-        model = torch.load(active_session.json["model"], map_location=torch.device('cpu'))
-        model.eval()
-        machine.map(optical_measuring, {"cam": camera})
+        try:
+            model = torch.load(session.json["model"], map_location=torch.device('cpu'))
+            model.eval()
+            machine.map(optical_measuring, {"cam": camera, "read": True})
+        except KeyError:
+            machine.map(optical_measuring, {"cam": camera, "read": False})
     else:
         raise ValueError("Invalid measuring method selected!")
     GPIO.cleanup()

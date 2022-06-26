@@ -1,3 +1,10 @@
+#!/usr/bin/env python
+
+"""
+All classes for data handling and processing are located here.
+In addition, this file can be called to create plots.
+"""
+
 import platform
 import json
 import csv
@@ -12,7 +19,7 @@ import torch
 from build.computervision import MyCNN
 
 
-def get_desktop() -> str:  # todo: refactor!
+def get_desktop() -> str:  # todo: Generalize this function so it can be used on all systems!
     """Returns one of these 2 desktop paths dependent on the OS."""
 
     if platform.system() == "Windows":
@@ -20,7 +27,7 @@ def get_desktop() -> str:  # todo: refactor!
     elif platform.system() == "Linux":
         return r"/home/pi/Desktop"
     else:
-        raise OSError("Can't determine the os I'm running on!")
+        raise OSError("Can't determine the OS I'm running on!")
 
 
 class File:
@@ -36,10 +43,6 @@ class File:
         """Useful for renaming and moving to another directory."""
         os.rename(self.path, new_path)
         self.path = new_path
-
-    def delete(self):
-        os.remove(self.path)
-        print(f"Deleted file from {self.path}")
 
     @property
     def name(self) -> str:
@@ -126,15 +129,6 @@ class CSV(File):
     def __init__(self, path_to_file: str):
         super(CSV, self).__init__(path_to_file)
 
-    def append(self, entry: list) -> None:
-        """
-        Appends the item to the end of the file and saves the change. The entry must be a list and
-        gets spread over a row.
-        """
-        with open(self.path, mode='a', newline='') as csv_file:
-            csv_writer = csv.writer(csv_file, delimiter=self.delimiter)
-            csv_writer.writerow(entry)
-
     def __iter__(self):
         """Extract values from csv file and yields them in the form of a list."""
         with open(self.path, mode='r') as file:
@@ -164,6 +158,15 @@ class CSV(File):
         with open(self.path, mode='w', newline='') as file:
             writer = csv.writer(file, delimiter=self.delimiter)
             writer.writerows(data)
+
+    def append(self, entry: list) -> None:
+        """
+        Appends the item to the end of the file and saves the change. The entry must be a list and
+        gets spread over a row.
+        """
+        with open(self.path, mode='a', newline='') as csv_file:
+            csv_writer = csv.writer(csv_file, delimiter=self.delimiter)
+            csv_writer.writerow(entry)
 
     def get_value(self, pos: list or tuple) -> float:
         """Returns the corresponding value to the given position."""
@@ -206,20 +209,6 @@ class Session:
         cv2.imwrite(filename=img_path, img=img)
 
         return MyImage(img_path)
-
-    def del_image(self, img: MyImage = None, img_name: str = None) -> None:
-        """
-        Image gets deleted from session. If the image is not part of the session an Exception is raised! The image can
-        be specified via the Image object or the path to the image.
-        """
-
-        if img:
-            if os.path.split(img.path)[0] == self.path:  # Can not be chained with "and" because img could be None!
-                img.delete()
-        elif img_name:
-            os.remove(os.path.join(self.path, img_name))
-        else:
-            raise ValueError("No data about image provided!")
 
     def read_images(self, model: torch.nn.Module = None):
         """
@@ -305,6 +294,7 @@ class Session:
 
 
 class HeatMap:
+    """A type of plot to display the measured electric potentials."""
     def __init__(self, session: Session):
         self.session = session
 
@@ -343,10 +333,15 @@ class HeatMap:
 
 
 def main() -> None:
-    active_session = Session()
-    # active_session.read_images()
+    session = Session()
 
-    p = HeatMap(session=active_session)
+    if len(session.csv) == 0:
+        try:
+            session.read_images()  # If no images are available the csv remains untouched.
+        except KeyError:  # If no model has been specified.
+            pass
+
+    p = HeatMap(session=session)
     p.plot()
 
 
