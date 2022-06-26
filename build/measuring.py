@@ -3,14 +3,14 @@
 """This file is run from the raspberry pi and takes the measurements as specified in the json file below."""
 
 from math import pi
-from tqdm import tqdm
 
+from tqdm import tqdm
 from RPi import GPIO as GPIO
-from hardware_accessories import StepperMotor, PushButton, Camera
 from data_accessories import Session, JSON
 import ADS1x15
-
 import torch
+
+from hardware_accessories import StepperMotor, PushButton, Camera
 from computervision import MyCNN
 
 

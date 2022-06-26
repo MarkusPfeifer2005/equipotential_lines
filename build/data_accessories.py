@@ -10,12 +10,13 @@ import json
 import csv
 from tkinter import filedialog, Tk
 import os
+
 import cv2
 import matplotlib.pyplot as plt
 import numpy as np
 from tqdm import tqdm
-
 import torch
+
 from build.computervision import MyCNN
 
 

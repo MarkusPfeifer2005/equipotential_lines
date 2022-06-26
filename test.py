@@ -11,7 +11,7 @@ import cv2
 import shutil
 import numpy as np
 
-from build.data_accessories import File, MyImage, JSON, CSV, get_desktop, Session
+from build.data_accessories import get_desktop, File, MyImage, JSON, CSV, Session
 from build.computervision import MyCNN
 
 

@@ -3,9 +3,10 @@ Hardware specific parts of the machine get controlled from here. Further, plans 
 where such things like motors get controlled with c++ and a python API, but no concrete schedule is provided!
 """
 
-from RPi import GPIO as GPIO
 import time
 import itertools
+
+from RPi import GPIO as GPIO
 import cv2
 import numpy as np
 
