@@ -17,7 +17,7 @@ import numpy as np
 from tqdm import tqdm
 import torch
 
-from build.computervision import MyCNN
+from computervision import MyCNN
 
 
 def get_desktop() -> str:  # todo: Generalize this function so it can be used on all systems!
