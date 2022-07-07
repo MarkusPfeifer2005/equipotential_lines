@@ -17,6 +17,7 @@ import numpy as np
 from tqdm import tqdm
 import torch
 
+# fixme: import throws an error (make: "from equipotential_lines.computervision import MyCNN" ONLY for testing)
 from computervision import MyCNN
 
 
@@ -232,7 +233,8 @@ class Session:
         """
         w, h = 150, 300
         xy = [(215, 230), (310, 230), (400, 230)]
-        img_idx_json = {"img_idx": kwargs["img_idx"]} if "img_idx" in kwargs else JSON("../build/image_index.json")
+        img_idx_json = {"img_idx": kwargs["img_idx"]} if "img_idx" in kwargs \
+            else JSON("../equipotential_lines/image_index.json")  # fixme: img_index was deleted!
 
         # create folders
         ml_dir = os.path.join(kwargs["target_dir"], "ml_" + self.name) if "target_dir" in kwargs \

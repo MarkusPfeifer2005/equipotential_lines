@@ -11,9 +11,8 @@ import cv2
 import shutil
 import numpy as np
 
-# fixme: the below import throws an error (make: "from build.computervision import MyCNN" ONLY for testing)
-from build.data_accessories import get_desktop, File, MyImage, JSON, CSV, Session
-from build.computervision import MyCNN
+from equipotential_lines.data_accessories import get_desktop, File, MyImage, JSON, CSV, Session
+from equipotential_lines.computervision import MyCNN
 
 
 class TestFile(unittest.TestCase):
