@@ -5,31 +5,25 @@ All classes for data handling and processing are located here.
 In addition, this file can be called to create plots.
 """
 
-import platform
 import json
 import csv
 from tkinter import filedialog, Tk
 import os
-
 import cv2
 import matplotlib.pyplot as plt
 import numpy as np
 from tqdm import tqdm
 import torch
 
-# fixme: import throws an error (make: "from equipotential_lines.computervision import MyCNN" ONLY for testing)
-from computervision import MyCNN
+from equipotential_lines.computervision import MyCNN
 
 
-def get_desktop() -> str:  # todo: Generalize this function so it can be used on all systems!
-    """Returns one of these 2 desktop paths dependent on the OS."""
-
-    if platform.system() == "Windows":
-        return r"D:\OneDrive - brg14.at\Desktop"
-    elif platform.system() == "Linux":
-        return r"/home/pi/Desktop"
-    else:
-        raise OSError("Can't determine the OS I'm running on!")
+def get_session_folder() -> str:
+    """Creates a folder for the sessions and returns its path."""
+    path = "../../sessions"
+    if not os.path.isdir(path):
+        os.mkdir(path)
+    return path
 
 
 class File:
@@ -91,7 +85,11 @@ class JSON(File):
 
     def __getitem__(self, item):
         with open(self.path, 'r') as file:
-            return json.load(file)[item]
+            try:
+                return json.load(file)[item]
+            except json.decoder.JSONDecodeError:
+                print("Could not load file.")
+                exit(0)
 
     def __setitem__(self, key, value):
         with open(self.path, "r") as file:
@@ -217,7 +215,9 @@ class Session:
         Reads the images and files the csv file. It does not care if data is already present,
         new data gets just appended.
         """
-        if not model:
+        if model:
+            model = model
+        else:
             model = torch.load(self.json["model"], map_location=torch.device("cpu"))
         model.eval()
 
@@ -234,11 +234,11 @@ class Session:
         w, h = 150, 300
         xy = [(215, 230), (310, 230), (400, 230)]
         img_idx_json = {"img_idx": kwargs["img_idx"]} if "img_idx" in kwargs \
-            else JSON("../equipotential_lines/image_index.json")  # fixme: img_index was deleted!
+            else JSON("../equipotential_lines/image_index.json")
 
         # create folders
         ml_dir = os.path.join(kwargs["target_dir"], "ml_" + self.name) if "target_dir" in kwargs \
-            else os.path.join(get_desktop(), "ml_" + self.name)
+            else os.path.join(get_session_folder(), "ml_" + self.name)
         os.mkdir(ml_dir)
 
         for i in range(10):
@@ -271,7 +271,7 @@ class Session:
 
         :return path:
         """
-        master_path = kwargs["path_to_dir"] if "path_to_dir" in kwargs else get_desktop()
+        master_path = kwargs["path_to_dir"] if "path_to_dir" in kwargs else get_session_folder()
         session_name = cls.get_new_session_name(master_path)
         path = os.path.join(master_path, session_name)
 

@@ -131,6 +131,7 @@ def main():
     elif session.json["measuring_method"] == "optical":
         camera = Camera()
         try:
+            model = MyCNN()
             model = torch.load(session.json["model"], map_location=torch.device('cpu'))
             model.eval()
             machine.map(optical_measuring, {"cam": camera, "read": True})

@@ -11,7 +11,7 @@ import cv2
 import shutil
 import numpy as np
 
-from equipotential_lines.data_accessories import get_desktop, File, MyImage, JSON, CSV, Session
+from equipotential_lines.data_accessories import get_session_folder, File, MyImage, JSON, CSV, Session
 from equipotential_lines.computervision import MyCNN
 
 
@@ -263,12 +263,6 @@ class TestMyCNN(unittest.TestCase):
         img = cv2.imread(r"test_files/session3/0,0,0.jpg")
         out = self.model.read(img, decimal_pos=1)
         self.assertIsInstance(out, float)
-
-
-class TestGetDesktop(unittest.TestCase):
-    """Only tests for windows"""
-    def test_get_desktop(self):
-        self.assertEqual(get_desktop(), r"D:\OneDrive - brg14.at\Desktop")
 
 
 if __name__ == "__main__":
